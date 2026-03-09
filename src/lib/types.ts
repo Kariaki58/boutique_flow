@@ -14,6 +14,7 @@ export interface Product {
   name: string;
   description: string;
   price: number;
+  buyingPrice: number;
   images: string[];
   category: string;
   /**
@@ -36,6 +37,7 @@ export interface OrderItem {
   name: string;
   quantity: number;
   price: number;
+  buyingPrice: number;
 }
 
 export interface Order {

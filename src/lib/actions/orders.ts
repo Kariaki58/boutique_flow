@@ -31,6 +31,15 @@ export async function placeOrder(storeId: string, orderData: PlaceOrderInput): P
   if (orderError || !order) throw new Error(orderError?.message ?? 'Failed to place order');
 
   if (orderData.items.length > 0) {
+    // Fetch current buying prices to store in order_items
+    const productIds = orderData.items.map(i => i.productId);
+    const { data: currentProducts } = await supabase
+      .from('products')
+      .select('id, buying_price')
+      .in('id', productIds);
+
+    const priceMap = new Map(currentProducts?.map(p => [p.id, Number(p.buying_price)]) ?? []);
+
     const itemRows = orderData.items.map((i) => ({
       order_id: order.id,
       product_id: i.productId,
@@ -39,6 +48,7 @@ export async function placeOrder(storeId: string, orderData: PlaceOrderInput): P
       variant_size: i.variantSize,
       name: i.name,
       price: i.price,
+      buying_price: priceMap.get(i.productId) ?? 0,
       quantity: i.quantity,
     }));
 

@@ -8,6 +8,7 @@ type ProductInput = {
   name: string;
   description: string;
   price: number;
+  buyingPrice: number;
   category: string;
   images: string[];
   variants: Omit<ProductVariant, 'id'>[];
@@ -24,6 +25,7 @@ export async function addProduct(storeId: string, data: ProductInput): Promise<P
       name: data.name,
       description: data.description,
       price: data.price,
+      buying_price: data.buyingPrice,
       category: data.category,
       images: data.images,
       stock: totalStock,
@@ -59,6 +61,7 @@ export async function addProduct(storeId: string, data: ProductInput): Promise<P
     name: product.name,
     description: product.description,
     price: Number(product.price),
+    buyingPrice: Number(product.buying_price),
     images: product.images,
     category: product.category,
     stock: product.stock,
@@ -86,6 +89,7 @@ export async function updateProduct(
       name: data.name,
       description: data.description,
       price: data.price,
+      buying_price: data.buyingPrice,
       category: data.category,
       images: data.images,
       stock: totalStock,

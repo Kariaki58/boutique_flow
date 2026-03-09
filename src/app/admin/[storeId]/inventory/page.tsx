@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { formatNaira } from '@/lib/utils';
+import { formatNaira, cn } from '@/lib/utils';
 import { 
   Dialog, 
   DialogContent, 
@@ -65,6 +65,7 @@ export default function InventoryPage() {
     name: string;
     description: string;
     price: string;
+    buyingPrice: string;
     category: string;
     images: string[];
     variants: VariantDraft[];
@@ -72,6 +73,7 @@ export default function InventoryPage() {
     name: '',
     description: '',
     price: '',
+    buyingPrice: '',
     category: '',
     images: [],
     variants: [newVariant()],
@@ -126,6 +128,7 @@ export default function InventoryPage() {
       name: formData.name,
       description: formData.description,
       price: parseFloat(formData.price),
+      buyingPrice: parseFloat(formData.buyingPrice || '0'),
       category: formData.category,
       images: images.length ? images : ['https://picsum.photos/seed/new/600/800'],
       variants: variants.length ? variants : [{ id: "v-0", color: "", size: "", stock: 0 }],
@@ -143,7 +146,7 @@ export default function InventoryPage() {
         setIsAdding(false);
         toast({ title: "Product added" });
       }
-      setFormData({ name: '', description: '', price: '', category: '', images: [], variants: [newVariant()] });
+      setFormData({ name: '', description: '', price: '', buyingPrice: '', category: '', images: [], variants: [newVariant()] });
     } catch (error) {
       toast({ title: "Error saving product", variant: "destructive" });
     } finally {
@@ -166,7 +169,7 @@ export default function InventoryPage() {
           if (!open) {
             setIsAdding(false);
             setIsEditing(null);
-            setFormData({ name: '', description: '', price: '', category: '', images: [], variants: [newVariant()] });
+            setFormData({ name: '', description: '', price: '', buyingPrice: '', category: '', images: [], variants: [newVariant()] });
           }
         }}>
           <DialogTrigger asChild>
@@ -184,12 +187,12 @@ export default function InventoryPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
-                    <Label className="text-xs font-semibold">Category</Label>
-                    <Input placeholder="Clothing" value={formData.category} onChange={e => setFormData(p => ({ ...p, category: e.target.value }))} />
+                    <Label className="text-xs font-semibold">Buying Price (₦)</Label>
+                    <Input type="number" placeholder="Cost price" value={formData.buyingPrice} onChange={e => setFormData(p => ({ ...p, buyingPrice: e.target.value }))} />
                   </div>
                   <div className="grid gap-2">
-                    <Label className="text-xs font-semibold">Price (₦)</Label>
-                    <Input type="number" placeholder="0.00" value={formData.price} onChange={e => setFormData(p => ({ ...p, price: e.target.value }))} />
+                    <Label className="text-xs font-semibold">Selling Price (₦)</Label>
+                    <Input type="number" placeholder="Retail price" value={formData.price} onChange={e => setFormData(p => ({ ...p, price: e.target.value }))} />
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -290,55 +293,87 @@ export default function InventoryPage() {
         <Input placeholder="Search inventory..." className="pl-9" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
       </div>
 
-      <div className="space-y-3">
+      <div className="grid grid-cols-1 gap-4">
         {filteredProducts.map(product => (
-          <Card key={product.id}>
-            <CardContent className="p-3 flex items-center gap-4">
-              <div className="w-16 h-16 rounded overflow-hidden">
-                <img src={product.images?.[0] ?? "https://picsum.photos/seed/product/600/800"} className="w-full h-full object-cover" />
+          <Card key={product.id} className="overflow-hidden border-none shadow-sm hover:shadow-md transition-shadow">
+            <CardContent className="p-3 sm:p-4 flex gap-4 items-start sm:items-center">
+              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden flex-shrink-0 bg-muted">
+                <img 
+                  src={product.images?.[0] ?? "https://picsum.photos/seed/product/600/800"} 
+                  className="w-full h-full object-cover" 
+                  alt={product.name}
+                />
               </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="font-semibold truncate">{product.name}</h3>
-                <p className="text-xs text-muted-foreground uppercase">{product.category}</p>
-                <p className="text-[10px] text-muted-foreground">{product.variants.length} variant{product.variants.length === 1 ? "" : "s"}</p>
-              </div>
-              <div className="text-right">
-                <p className="font-bold text-primary">{formatNaira(product.price)}</p>
-                <Badge variant={product.stock <= 3 ? "destructive" : "secondary"}>{product.stock} units</Badge>
-              </div>
-              <div className="flex gap-1">
-                <Button size="icon" variant="ghost" onClick={() => {
-                   setFormData({
-                     name: product.name,
-                     description: product.description,
-                     price: product.price.toString(),
-                     category: product.category,
-                     images: product.images ?? [],
-                     variants: (product.variants ?? []).map(v => ({ id: v.id, color: v.color, size: v.size, stock: v.stock.toString() }))
-                   });
-                   setIsEditing(product.id);
-                }}><Edit2 className="h-4 w-4" /></Button>
-                <Button 
-                  size="icon" 
-                  variant="ghost" 
-                  className="text-destructive" 
-                  disabled={isDeleting === product.id}
-                  onClick={async () => {
-                    if (confirm("Are you sure?")) {
-                      setIsDeleting(product.id);
-                      try {
-                        await deleteProduct(storeId, product.id);
-                        toast({ title: "Product deleted" });
-                      } catch (error) {
-                        toast({ title: "Delete failed", variant: "destructive" });
-                      } finally {
-                        setIsDeleting(null);
-                      }
-                    }
-                  }}
-                >
-                  {isDeleting === product.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                </Button>
+              
+              <div className="flex-1 min-w-0 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                <div className="flex-1 min-w-0 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-base sm:text-lg truncate">{product.name}</h3>
+                    <Badge variant="outline" className="text-[10px] uppercase tracking-wider py-0 px-1.5 h-4 bg-primary/5 text-primary border-primary/20">{product.category}</Badge>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <Package className="w-3 h-3" />
+                      {product.variants.length} variant{product.variants.length === 1 ? "" : "s"}
+                    </span>
+                    <Badge 
+                      variant={product.stock <= 5 ? "destructive" : "secondary"} 
+                      className={cn(
+                        "text-[10px] font-medium px-2 py-0",
+                        product.stock > 5 && "bg-green-100 text-green-700 hover:bg-green-100"
+                      )}
+                    >
+                      {product.stock} units
+                    </Badge>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between sm:flex-col sm:items-end gap-2">
+                  <p className="font-black text-primary text-lg sm:text-xl">{formatNaira(product.price)}</p>
+                  
+                  <div className="flex gap-1">
+                    <Button 
+                      size="icon" 
+                      variant="ghost" 
+                      className="h-9 w-9 bg-muted/50 hover:bg-primary/10 hover:text-primary rounded-full transition-colors"
+                      onClick={() => {
+                        setFormData({
+                          name: product.name,
+                          description: product.description,
+                          price: product.price.toString(),
+                          buyingPrice: (product.buyingPrice || 0).toString(),
+                          category: product.category,
+                          images: product.images ?? [],
+                          variants: (product.variants ?? []).map(v => ({ id: v.id, color: v.color, size: v.size, stock: v.stock.toString() }))
+                        });
+                        setIsEditing(product.id);
+                      }}
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </Button>
+                    <Button 
+                      size="icon" 
+                      variant="ghost" 
+                      className="h-9 w-9 bg-muted/50 hover:bg-destructive/10 text-destructive rounded-full transition-colors" 
+                      disabled={isDeleting === product.id}
+                      onClick={async () => {
+                        if (confirm("Are you sure?")) {
+                          setIsDeleting(product.id);
+                          try {
+                            await deleteProduct(storeId, product.id);
+                            toast({ title: "Product deleted" });
+                          } catch (error) {
+                            toast({ title: "Delete failed", variant: "destructive" });
+                          } finally {
+                            setIsDeleting(null);
+                          }
+                        }
+                      }}
+                    >
+                      {isDeleting === product.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>

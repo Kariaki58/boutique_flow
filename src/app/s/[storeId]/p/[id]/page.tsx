@@ -404,9 +404,23 @@ export default function ProductDetailPage() {
             <ChevronLeft className="w-6 h-6 text-primary" />
           </Button>
         </Link>
-        <Button variant="secondary" size="icon" onClick={copyLink} className="rounded-full shadow-md bg-white/90">
-          <Share2 className="w-5 h-5 text-primary" />
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="secondary" size="icon" onClick={copyLink} className="rounded-full shadow-md bg-white/90">
+            <Copy className="w-5 h-5 text-primary" />
+          </Button>
+          <Button variant="secondary" size="icon" onClick={() => {
+            if (navigator.share) {
+              navigator.share({
+                title: product.name,
+                url: window.location.href
+              }).catch(() => {});
+            } else {
+              copyLink();
+            }
+          }} className="rounded-full shadow-md bg-white/90">
+            <Share2 className="w-5 h-5 text-primary" />
+          </Button>
+        </div>
       </header>
 
       <div className="max-w-md mx-auto pb-24">
