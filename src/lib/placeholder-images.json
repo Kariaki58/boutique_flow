@@ -1,3 +1,34 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "dress-1",
+      "description": "Elegant evening gown",
+      "imageUrl": "https://picsum.photos/seed/fashion1/600/800",
+      "imageHint": "evening gown"
+    },
+    {
+      "id": "shoes-1",
+      "description": "Premium leather heels",
+      "imageUrl": "https://picsum.photos/seed/fashion2/600/800",
+      "imageHint": "leather heels"
+    },
+    {
+      "id": "bag-1",
+      "description": "Handcrafted designer handbag",
+      "imageUrl": "https://picsum.photos/seed/fashion3/600/800",
+      "imageHint": "designer handbag"
+    },
+    {
+      "id": "skirt-1",
+      "description": "Silk floral skirt",
+      "imageUrl": "https://picsum.photos/seed/fashion4/600/800",
+      "imageHint": "silk skirt"
+    },
+    {
+      "id": "blazer-1",
+      "description": "Professional tailored blazer",
+      "imageUrl": "https://picsum.photos/seed/fashion5/600/800",
+      "imageHint": "tailored blazer"
+    }
+  ]
 }
