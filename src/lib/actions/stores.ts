@@ -31,6 +31,7 @@ export async function getMyStores(): Promise<BoutiqueStore[]> {
         name: p.name,
         description: p.description,
         price: Number(p.price),
+        buyingPrice: Number(p.buying_price),
         images: p.images ?? [],
         category: p.category,
         stock: p.stock,
@@ -86,6 +87,8 @@ export async function getMyStores(): Promise<BoutiqueStore[]> {
           whatsappNumber: s.whatsapp_number,
           primaryColor: s.primary_color,
           banner: s.banner_url,
+          isActivated: s.is_activated,
+          activationReference: s.activation_reference,
         },
         products,
         orders,
@@ -119,6 +122,7 @@ export async function getStoreById(storeId: string): Promise<BoutiqueStore | nul
     name: p.name,
     description: p.description,
     price: Number(p.price),
+    buyingPrice: Number(p.buying_price),
     images: p.images ?? [],
     category: p.category,
     stock: p.stock,
@@ -174,16 +178,18 @@ export async function getStoreById(storeId: string): Promise<BoutiqueStore | nul
       whatsappNumber: s.whatsapp_number,
       primaryColor: s.primary_color,
       banner: s.banner_url,
+      isActivated: s.is_activated,
+      activationReference: s.activation_reference,
     },
     products,
     orders,
   };
 }
 
-export async function createStore(name: string): Promise<string> {
+export async function createStore(name: string): Promise<{ storeId: string; checkoutUrl: string }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('Not authenticated');
+  if (!user || !user.email) throw new Error('Not authenticated');
 
   const id = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') + '-' + Math.random().toString(36).substr(2, 4);
 
@@ -197,12 +203,80 @@ export async function createStore(name: string): Promise<string> {
     account_name: '',
     account_number: '',
     whatsapp_number: '',
+    is_activated: false,
   });
 
   if (error) throw new Error(error.message);
 
+  const { initializePaystackPayment } = await import('@/lib/paystack');
+  const { authorization_url, reference } = await initializePaystackPayment(user.email, 2500, {
+    storeId: id,
+    userId: user.id,
+    type: 'store_activation',
+  });
+
+  await supabase
+    .from('stores')
+    .update({ activation_reference: reference })
+    .eq('id', id);
+
   revalidatePath('/');
-  return id;
+  return { storeId: id, checkoutUrl: authorization_url };
+}
+
+export async function verifyStoreActivation(storeId: string, reference: string): Promise<boolean> {
+  const supabase = await createClient();
+  const { verifyPaystackPayment } = await import('@/lib/paystack');
+  
+  try {
+    const paymentData = await verifyPaystackPayment(reference);
+    
+    if (paymentData.status === 'success' && paymentData.metadata.storeId === storeId) {
+      const { error } = await supabase
+        .from('stores')
+        .update({ is_activated: true })
+        .eq('id', storeId);
+        
+      if (error) throw new Error(error.message);
+      
+      revalidatePath(`/admin/${storeId}`);
+      return true;
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('Error verifying store activation:', error);
+    return false;
+  }
+}
+
+export async function reinitializeActivationPayment(storeId: string): Promise<string> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user || !user.email) throw new Error('Not authenticated');
+
+  const { data: store, error: storeError } = await supabase
+    .from('stores')
+    .select('name, is_activated')
+    .eq('id', storeId)
+    .single();
+
+  if (storeError || !store) throw new Error('Store not found');
+  if (store.is_activated) throw new Error('Store is already activated');
+
+  const { initializePaystackPayment } = await import('@/lib/paystack');
+  const { authorization_url, reference } = await initializePaystackPayment(user.email, 2500, {
+    storeId,
+    userId: user.id,
+    type: 'store_activation',
+  });
+
+  await supabase
+    .from('stores')
+    .update({ activation_reference: reference })
+    .eq('id', storeId);
+
+  return authorization_url;
 }
 
 export async function updateSettings(storeId: string, settings: StoreSettings): Promise<void> {

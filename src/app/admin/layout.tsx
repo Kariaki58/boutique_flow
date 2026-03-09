@@ -1,5 +1,5 @@
-
 import { AdminNav } from '@/components/layout/admin-nav';
+import { ActivationGate } from '@/components/layout/activation-gate';
 
 export default function AdminLayout({
   children,
@@ -11,7 +11,9 @@ export default function AdminLayout({
       <AdminNav />
       <main className="flex-1 pb-24 md:pb-0 overflow-x-hidden">
         <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
-          {children}
+          <ActivationGate>
+            {children}
+          </ActivationGate>
         </div>
       </main>
     </div>

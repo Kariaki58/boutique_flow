@@ -68,10 +68,25 @@ export interface StoreSettings {
   whatsappNumber: string;
   primaryColor?: string;
   banner?: string;
+  isActivated: boolean;
+  activationReference?: string;
 }
 
 export interface BoutiqueStore {
   settings: StoreSettings;
   products: Product[];
   orders: Order[];
+}
+
+export interface CartItem {
+  productId: string;
+  variantId: string;
+  name: string;
+  price: number;
+  buyingPrice: number;
+  quantity: number;
+  image: string;
+  color?: string;
+  size?: string;
+  stock: number;
 }

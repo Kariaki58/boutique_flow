@@ -9,9 +9,10 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Store, CreditCard, MessageCircle, Save, Loader2 } from 'lucide-react';
+import { Store, CreditCard, MessageCircle, Save, Loader2, LogOut } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ImageUploader } from '@/components/ui/image-uploader';
+import { signOut } from '@/lib/actions/auth';
 
 export default function SettingsPage() {
   const { storeId } = useParams() as { storeId: string };
@@ -22,6 +23,7 @@ export default function SettingsPage() {
   const [banner, setBanner] = useState<string[]>([]);
   const [primaryColor, setPrimaryColor] = useState('#7C2D12');
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   
   React.useEffect(() => {
     if (store?.settings) {
@@ -49,6 +51,8 @@ export default function SettingsPage() {
         accountName: formData.get('accountName') as string,
         accountNumber: formData.get('accountNumber') as string,
         whatsappNumber: formData.get('whatsappNumber') as string,
+        isActivated: store.settings.isActivated,
+        activationReference: store.settings.activationReference,
       });
       toast({ title: "Settings Saved" });
     } catch (error) {
@@ -58,11 +62,33 @@ export default function SettingsPage() {
     }
   };
 
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await signOut();
+    } catch (error) {
+      toast({ title: "Failed to logout", variant: "destructive" });
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-bold">Settings</h1>
-        <p className="text-muted-foreground">Manage boutique configuration</p>
+      <header className="flex justify-between items-start">
+        <div>
+          <h1 className="text-2xl font-bold">Settings</h1>
+          <p className="text-muted-foreground">Manage boutique configuration</p>
+        </div>
+        <Button 
+          variant="outline" 
+          className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 font-bold gap-2"
+          onClick={handleLogout}
+          disabled={isLoggingOut}
+        >
+          {isLoggingOut ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogOut className="w-4 h-4" />}
+          Logout
+        </Button>
       </header>
 
       <form onSubmit={handleSave} className="space-y-6">

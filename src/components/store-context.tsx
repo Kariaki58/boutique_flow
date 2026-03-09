@@ -2,13 +2,14 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Product, Order, StoreSettings, OrderStatus, BoutiqueStore, ProductVariant } from '@/lib/types';
+import { useParams } from 'next/navigation';
+import { Product, Order, StoreSettings, OrderStatus, BoutiqueStore, ProductVariant, CartItem } from '@/lib/types';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { ShoppingBag } from 'lucide-react';
 
 interface StoreContextType {
   stores: BoutiqueStore[];
-  createStore: (name: string) => Promise<string>;
+  createStore: (name: string) => Promise<{ storeId: string; checkoutUrl: string }>;
   getStore: (storeId: string) => BoutiqueStore | undefined;
   addProduct: (storeId: string, product: Omit<Product, 'id' | 'status' | 'storeId'>) => Promise<void>;
   updateProduct: (storeId: string, id: string, updates: Partial<Product>) => Promise<void>;
@@ -17,6 +18,12 @@ interface StoreContextType {
   updateOrderStatus: (storeId: string, id: string, status: OrderStatus) => Promise<void>;
   updateSettings: (storeId: string, settings: StoreSettings) => Promise<void>;
   loadPublicStore: (storeId: string) => Promise<void>;
+  // Cart
+  cart: CartItem[];
+  addToCart: (item: CartItem) => void;
+  removeFromCart: (variantId: string) => void;
+  updateCartQuantity: (variantId: string, quantity: number) => void;
+  clearCart: () => void;
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
@@ -77,6 +84,7 @@ function normalizeProduct(raw: any): Product {
     variants,
     stock,
     status: computeProductStatus(stock),
+    buyingPrice: safeNumber(raw?.buyingPrice, 0),
   };
 }
 
@@ -95,6 +103,32 @@ import { placeOrder as placeOrderAction, updateOrderStatus as updateOrderStatusA
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [stores, setStores] = useState<BoutiqueStore[]>([]);
   const [loading, setLoading] = useState(true);
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const params = useParams();
+  const storeId = params?.storeId as string | undefined;
+
+  // Load cart from localStorage
+  useEffect(() => {
+    if (storeId) {
+      const savedCart = localStorage.getItem(`cart_${storeId}`);
+      if (savedCart) {
+        try {
+          setCart(JSON.parse(savedCart));
+        } catch (e) {
+          console.error("Failed to parse cart", e);
+        }
+      } else {
+        setCart([]);
+      }
+    }
+  }, [storeId]);
+
+  // Persist cart to localStorage
+  useEffect(() => {
+    if (storeId) {
+      localStorage.setItem(`cart_${storeId}`, JSON.stringify(cart));
+    }
+  }, [cart, storeId]);
 
   const refreshStores = async () => {
     try {
@@ -112,9 +146,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, []);
 
   const createStore = async (name: string) => {
-    const id = await createStoreAction(name);
+    const result = await createStoreAction(name);
     await refreshStores();
-    return id;
+    return result;
   };
 
   const getStore = (storeId: string) => stores.find(s => s.settings.id === storeId);
@@ -167,6 +201,32 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  const addToCart = (item: CartItem) => {
+    setCart(prev => {
+      const existing = prev.find(i => i.variantId === item.variantId);
+      if (existing) {
+        return prev.map(i => 
+          i.variantId === item.variantId 
+            ? { ...i, quantity: Math.min(i.stock, i.quantity + item.quantity) } 
+            : i
+        );
+      }
+      return [...prev, item];
+    });
+  };
+
+  const removeFromCart = (variantId: string) => {
+    setCart(prev => prev.filter(i => i.variantId !== variantId));
+  };
+
+  const updateCartQuantity = (variantId: string, quantity: number) => {
+    setCart(prev => prev.map(i => 
+      i.variantId === variantId ? { ...i, quantity: Math.max(1, Math.min(i.stock, quantity)) } : i
+    ));
+  };
+
+  const clearCart = () => setCart([]);
+
   return (
     <StoreContext.Provider value={{ 
       stores, 
@@ -178,7 +238,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       placeOrder, 
       updateOrderStatus, 
       updateSettings,
-      loadPublicStore
+      loadPublicStore,
+      cart,
+      addToCart,
+      removeFromCart,
+      updateCartQuantity,
+      clearCart
     }}>
       {loading ? (
         <div className="min-h-screen flex items-center justify-center bg-[#F9F4F7]">

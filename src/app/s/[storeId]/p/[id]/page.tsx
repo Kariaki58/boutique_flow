@@ -20,18 +20,34 @@ import {
   Loader2,
   Copy,
   Truck,
-  Store
+  Store,
+  ShoppingCart
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { cn, formatNaira } from '@/lib/utils';
 import { ProductImageCarousel } from '@/components/products/product-image-carousel';
+import { CartSlider } from '@/components/cart/cart-slider';
 
 export default function ProductDetailPage() {
   const { storeId, id } = useParams() as { storeId: string, id: string };
-  const { getStore, placeOrder, loadPublicStore } = useStore();
+  const { getStore, placeOrder, loadPublicStore, addToCart, cart } = useStore();
   const store = getStore(storeId);
   const [loading, setLoading] = useState(!store);
+  const [isCartOpen, setIsCartOpen] = useState(false);
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      if (window.location.hash === '#cart') {
+        setIsCartOpen(true);
+        // Clean up hash without triggering another scroll
+        window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      }
+    };
+    handleHashChange(); // Check on mount
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
 
   useEffect(() => {
     if (!store) {
@@ -144,6 +160,7 @@ export default function ProductDetailPage() {
           variantSize: selectedVariant.size,
           name: product.name,
           price: product.price,
+          buyingPrice: product.buyingPrice,
           quantity
         }],
         total: product.price * quantity,
@@ -161,6 +178,32 @@ export default function ProductDetailPage() {
     } finally {
       setIsPlacingOrder(false);
     }
+  };
+
+  const handleAddToCart = () => {
+    if (!selectedVariant || selectedVariant.stock <= 0) {
+      toast({ title: "Out of stock", description: "This variant is out of stock.", variant: "destructive" });
+      return;
+    }
+
+    addToCart({
+      productId: product.id,
+      variantId: selectedVariant.id,
+      name: product.name,
+      price: product.price,
+      buyingPrice: product.buyingPrice,
+      quantity,
+      image: product.images[0],
+      color: selectedVariant.color,
+      size: selectedVariant.size,
+      stock: selectedVariant.stock
+    });
+
+    toast({ 
+      title: "Added to cart", 
+      description: `${quantity}x ${product.name} added to your cart.`,
+      action: <Button variant="outline" size="sm" onClick={() => setIsCartOpen(true)}>View Cart</Button>
+    });
   };
 
   const handleWhatsAppOrder = () => {
@@ -398,6 +441,7 @@ export default function ProductDetailPage() {
   return (
     <div className="min-h-screen bg-white">
       <style dangerouslySetInnerHTML={{ __html: brandingStyles }} />
+      <CartSlider open={isCartOpen} onOpenChange={setIsCartOpen} />
       <header className="fixed top-0 left-0 right-0 z-50 px-4 py-4 flex items-center justify-between">
         <Link href={`/s/${storeId}`}>
           <Button variant="secondary" size="icon" className="rounded-full shadow-md bg-white/90">
@@ -405,6 +449,19 @@ export default function ProductDetailPage() {
           </Button>
         </Link>
         <div className="flex gap-2">
+          <Button 
+            variant="secondary" 
+            size="icon" 
+            className="rounded-full shadow-md bg-white/90 relative"
+            onClick={() => setIsCartOpen(true)}
+          >
+            <ShoppingCart className="w-5 h-5 text-primary" />
+            {cart.length > 0 && (
+              <span className="absolute -top-1 -right-1 bg-primary text-white text-[9px] font-extrabold w-4 h-4 rounded-full flex items-center justify-center ring-2 ring-white">
+                {cart.reduce((sum, item) => sum + item.quantity, 0)}
+              </span>
+            )}
+          </Button>
           <Button variant="secondary" size="icon" onClick={copyLink} className="rounded-full shadow-md bg-white/90">
             <Copy className="w-5 h-5 text-primary" />
           </Button>
@@ -544,21 +601,24 @@ export default function ProductDetailPage() {
             </div>
           </div>
 
-          <div className="space-y-3 pt-4">
-            <Button 
-              className="w-full h-14 text-lg font-bold rounded-2xl" 
-              onClick={() => setStep('checkout')}
-              disabled={!selectedVariant || selectedVariant.stock <= 0}
-            >
-              Order Now
-            </Button>
-            <Button 
-              variant="outline" 
-              className="w-full h-14 border-primary text-primary text-lg font-bold rounded-2xl gap-2"
-              onClick={handleWhatsAppOrder}
-            >
-              <MessageCircle className="w-6 h-6" /> Order on WhatsApp
-            </Button>
+          <div className="grid grid-cols-1 gap-3 pt-4">
+            <div className="flex gap-3">
+              <Button 
+                variant="outline"
+                className="flex-1 h-14 border-primary text-primary text-lg font-bold rounded-2xl" 
+                onClick={handleAddToCart}
+                disabled={!selectedVariant || selectedVariant.stock <= 0}
+              >
+                Add to Cart
+              </Button>
+              <Button 
+                className="flex-[1.5] h-14 text-lg font-bold rounded-2xl shadow-lg shadow-primary/20" 
+                onClick={() => setStep('checkout')}
+                disabled={!selectedVariant || selectedVariant.stock <= 0}
+              >
+                Buy Now
+              </Button>
+            </div>
           </div>
         </div>
       </div>

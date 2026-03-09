@@ -12,16 +12,19 @@ import {
   Search, 
   ShoppingBag, 
   ArrowRight,
-  Heart
+  Heart,
+  ShoppingCart
 } from 'lucide-react';
 import Link from 'next/link';
 import { formatNaira } from '@/lib/utils';
+import { CartSlider } from '@/components/cart/cart-slider';
 
 export default function PublicStorefront() {
   const { storeId } = useParams() as { storeId: string };
-  const { getStore, loadPublicStore } = useStore();
+  const { getStore, loadPublicStore, cart } = useStore();
   const store = getStore(storeId);
   const [loading, setLoading] = useState(!store);
+  const [isCartOpen, setIsCartOpen] = useState(false);
   
   useEffect(() => {
     if (!store) {
@@ -94,13 +97,25 @@ export default function PublicStorefront() {
               <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-medium">Fashion Boutique</p>
             </div>
           </div>
-          <Link href={`/admin/${storeId}`}>
-            <Button variant="ghost" size="icon" className="text-primary">
-              <ShoppingBag className="w-6 h-6" />
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="text-primary relative"
+              onClick={() => setIsCartOpen(true)}
+            >
+              <ShoppingCart className="w-6 h-6" />
+              {cart.length > 0 && (
+                <span className="absolute -top-1 -right-1 bg-primary text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center ring-2 ring-white">
+                  {cart.reduce((sum, item) => sum + item.quantity, 0)}
+                </span>
+              )}
             </Button>
-          </Link>
+          </div>
         </div>
       </header>
+
+      <CartSlider open={isCartOpen} onOpenChange={setIsCartOpen} />
 
       <section className="bg-primary text-white p-8 md:p-12 mb-6 relative overflow-hidden min-h-[220px] flex items-center">
         <div className="max-w-6xl mx-auto relative z-10 w-full">

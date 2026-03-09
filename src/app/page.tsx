@@ -49,8 +49,9 @@ export default function SaaSLandingPage() {
 
     setCreating(true);
     try {
-      const id = await createStoreAction(newStoreName);
-      router.push(`/admin/${id}`);
+      const { storeId, checkoutUrl } = await createStoreAction(newStoreName);
+      // Redirect to Paystack checkout
+      window.location.href = checkoutUrl;
     } catch (error) {
       console.error("Failed to create store:", error);
       setCreating(false);
