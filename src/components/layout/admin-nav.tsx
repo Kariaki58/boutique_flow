@@ -5,14 +5,26 @@ import Link from 'next/link';
 import { usePathname, useParams } from 'next/navigation';
 import { LayoutDashboard, ShoppingBag, Package, ClipboardList, Settings, Store, Globe } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useStore } from '@/components/store-context';
+import React, { useState, useEffect } from "react";
+import { getMyStores } from '@/lib/actions/stores';
 
 export function AdminNav() {
   const pathname = usePathname();
-  const { storeId } = useParams() as { storeId: string };
-  const { stores } = useStore();
+  const params = useParams();
+  const storeId = params?.storeId as string | undefined;
+  const [resolvedStoreId, setResolvedStoreId] = useState<string | undefined>(storeId);
 
-  const resolvedStoreId = storeId ?? stores[0]?.settings.id;
+  useEffect(() => {
+    if (storeId) {
+      setResolvedStoreId(storeId);
+    } else {
+      getMyStores().then(stores => {
+        if (stores.length > 0) {
+          setResolvedStoreId(stores[0].settings.id);
+        }
+      });
+    }
+  }, [storeId]);
 
   const navItems = [
     { href: `/admin/${resolvedStoreId}`, icon: LayoutDashboard, label: 'Home' },

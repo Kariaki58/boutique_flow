@@ -26,11 +26,13 @@ import {
   Edit2, 
   Trash2, 
   AlertCircle,
-  Package
+  Package,
+  Loader2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { generateProductDescription } from '@/ai/flows/ai-product-description-generator';
 import { Badge } from '@/components/ui/badge';
+import { ImageUploader } from '@/components/ui/image-uploader';
 
 type VariantDraft = {
   id: string;
@@ -49,12 +51,14 @@ export default function InventoryPage() {
   const [isAdding, setIsAdding] = useState(false);
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [loadingAi, setLoadingAi] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
   const newVariant = (): VariantDraft => ({
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-    color: "Default",
-    size: "One Size",
-    stock: "0",
+    color: "",
+    size: "",
+    stock: "",
   });
 
   const [formData, setFormData] = useState<{
@@ -62,14 +66,14 @@ export default function InventoryPage() {
     description: string;
     price: string;
     category: string;
-    imagesText: string;
+    images: string[];
     variants: VariantDraft[];
   }>({
     name: '',
     description: '',
     price: '',
     category: '',
-    imagesText: 'https://picsum.photos/seed/new/600/800',
+    images: [],
     variants: [newVariant()],
   });
 
@@ -96,16 +100,13 @@ export default function InventoryPage() {
     }
   };
 
-  const handleSave = () => {
-    const images = formData.imagesText
-      .split(/[\n,]+/g)
-      .map(s => s.trim())
-      .filter(Boolean);
+  const handleSave = async () => {
+    const images = formData.images;
 
     const variants: ProductVariant[] = formData.variants.map((v, idx) => ({
       id: v.id || `v-${idx}`,
-      color: (v.color || "Default").trim(),
-      size: (v.size || "One Size").trim(),
+      color: (v.color || "").trim(),
+      size: (v.size || "").trim(),
       stock: Number.isFinite(parseInt(v.stock)) ? Math.max(0, parseInt(v.stock)) : 0,
     }));
 
@@ -127,18 +128,27 @@ export default function InventoryPage() {
       price: parseFloat(formData.price),
       category: formData.category,
       images: images.length ? images : ['https://picsum.photos/seed/new/600/800'],
-      variants: variants.length ? variants : [{ id: "v-0", color: "Default", size: "One Size", stock: 0 }],
+      variants: variants.length ? variants : [{ id: "v-0", color: "", size: "", stock: 0 }],
       stock: totalStock,
     };
 
-    if (isEditing) {
-      updateProduct(storeId, isEditing, data);
-      setIsEditing(null);
-    } else {
-      addProduct(storeId, data);
-      setIsAdding(false);
+    setIsSaving(true);
+    try {
+      if (isEditing) {
+        await updateProduct(storeId, isEditing, data);
+        setIsEditing(null);
+        toast({ title: "Product updated" });
+      } else {
+        await addProduct(storeId, data);
+        setIsAdding(false);
+        toast({ title: "Product added" });
+      }
+      setFormData({ name: '', description: '', price: '', category: '', images: [], variants: [newVariant()] });
+    } catch (error) {
+      toast({ title: "Error saving product", variant: "destructive" });
+    } finally {
+      setIsSaving(false);
     }
-    setFormData({ name: '', description: '', price: '', category: '', imagesText: 'https://picsum.photos/seed/new/600/800', variants: [newVariant()] });
   };
 
   const filteredProducts = store.products.filter(p => 
@@ -156,7 +166,7 @@ export default function InventoryPage() {
           if (!open) {
             setIsAdding(false);
             setIsEditing(null);
-            setFormData({ name: '', description: '', price: '', category: '', imagesText: 'https://picsum.photos/seed/new/600/800', variants: [newVariant()] });
+            setFormData({ name: '', description: '', price: '', category: '', images: [], variants: [newVariant()] });
           }
         }}>
           <DialogTrigger asChild>
@@ -166,91 +176,111 @@ export default function InventoryPage() {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>Product Details</DialogTitle></DialogHeader>
-            <div className="space-y-4 py-4">
-              <Input placeholder="Name" value={formData.name} onChange={e => setFormData(p => ({ ...p, name: e.target.value }))} />
-              <div className="grid grid-cols-2 gap-2">
-                <Input placeholder="Category" value={formData.category} onChange={e => setFormData(p => ({ ...p, category: e.target.value }))} />
-                <Input type="number" placeholder="Price" value={formData.price} onChange={e => setFormData(p => ({ ...p, price: e.target.value }))} />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs">Image URLs (comma or new line)</Label>
-                <Textarea
-                  value={formData.imagesText}
-                  onChange={e => setFormData(p => ({ ...p, imagesText: e.target.value }))}
-                  placeholder="https://...jpg"
-                  className="min-h-20"
-                />
-              </div>
-              <div className="space-y-1">
-                <div className="flex justify-between items-center">
-                   <Label className="text-xs">Description</Label>
-                   <Button variant="ghost" size="sm" onClick={handleAiDescription} disabled={loadingAi} className="h-6 text-[10px]"><Sparkles className="w-3 h-3 mr-1" /> AI</Button>
+            <div className="max-h-[70vh] overflow-y-auto px-1 space-y-4 py-4">
+              <div className="space-y-4">
+                <div className="grid gap-2">
+                  <Label className="text-xs font-semibold">Product Name</Label>
+                  <Input placeholder="e.g. Vintage Silk Dress" value={formData.name} onChange={e => setFormData(p => ({ ...p, name: e.target.value }))} />
                 </div>
-                <Textarea value={formData.description} onChange={e => setFormData(p => ({ ...p, description: e.target.value }))} />
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs">Variants (color / size / stock)</Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-[10px]"
-                    onClick={() => setFormData(p => ({ ...p, variants: [...p.variants, newVariant()] }))}
-                  >
-                    <Plus className="w-3 h-3 mr-1" /> Add Variant
-                  </Button>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label className="text-xs font-semibold">Category</Label>
+                    <Input placeholder="Clothing" value={formData.category} onChange={e => setFormData(p => ({ ...p, category: e.target.value }))} />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label className="text-xs font-semibold">Price (₦)</Label>
+                    <Input type="number" placeholder="0.00" value={formData.price} onChange={e => setFormData(p => ({ ...p, price: e.target.value }))} />
+                  </div>
                 </div>
-
                 <div className="space-y-2">
-                  {formData.variants.map((v, idx) => (
-                    <div key={v.id} className="grid grid-cols-12 gap-2 items-center">
-                      <Input
-                        className="col-span-4 h-9"
-                        placeholder="Color"
-                        value={v.color}
-                        onChange={e => setFormData(p => ({
-                          ...p,
-                          variants: p.variants.map(x => x.id === v.id ? { ...x, color: e.target.value } : x)
-                        }))}
-                      />
-                      <Input
-                        className="col-span-4 h-9"
-                        placeholder="Size"
-                        value={v.size}
-                        onChange={e => setFormData(p => ({
-                          ...p,
-                          variants: p.variants.map(x => x.id === v.id ? { ...x, size: e.target.value } : x)
-                        }))}
-                      />
-                      <Input
-                        className="col-span-3 h-9"
-                        type="number"
-                        placeholder="Stock"
-                        value={v.stock}
-                        onChange={e => setFormData(p => ({
-                          ...p,
-                          variants: p.variants.map(x => x.id === v.id ? { ...x, stock: e.target.value } : x)
-                        }))}
-                      />
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="ghost"
-                        className="col-span-1 h-9 w-9 text-destructive"
-                        disabled={formData.variants.length === 1}
-                        onClick={() => setFormData(p => ({ ...p, variants: p.variants.filter(x => x.id !== v.id) }))}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                      {idx === formData.variants.length - 1 ? null : <div className="col-span-12 h-px bg-muted" />}
-                    </div>
-                  ))}
+                  <Label className="text-xs font-semibold">Product Images</Label>
+                  <ImageUploader 
+                    value={formData.images} 
+                    onUpload={(urls) => setFormData(p => ({ ...p, images: urls }))} 
+                    maxImages={5}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <Label className="text-xs font-semibold">Description</Label>
+                    <Button variant="ghost" size="sm" onClick={handleAiDescription} disabled={loadingAi} className="h-6 text-[10px] bg-primary/5 hover:bg-primary/10 text-primary">
+                      {loadingAi ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Sparkles className="w-3 h-3 mr-1" />} AI Generate
+                    </Button>
+                  </div>
+                  <Textarea 
+                    placeholder="Describe your product..."
+                    value={formData.description} 
+                    onChange={e => setFormData(p => ({ ...p, description: e.target.value }))} 
+                    className="min-h-[100px]"
+                  />
+                </div>
+
+                <div className="space-y-4 pt-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-semibold text-primary uppercase tracking-wider">Variants & Stock</Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-[10px] border-primary/20 hover:bg-primary/5"
+                      onClick={() => setFormData(p => ({ ...p, variants: [...p.variants, newVariant()] }))}
+                    >
+                      <Plus className="w-3 h-3 mr-1" /> Add Variant
+                    </Button>
+                  </div>
+
+                  <div className="space-y-3">
+                    {formData.variants.map((v, idx) => (
+                      <div key={v.id} className="p-3 rounded-lg border bg-muted/30 space-y-3">
+                        <div className="grid grid-cols-12 gap-2 items-center">
+                          <div className="col-span-11 grid grid-cols-3 gap-2">
+                            <Input
+                              className="h-9 text-sm"
+                              placeholder="Color"
+                              value={v.color}
+                              onChange={e => setFormData(p => ({
+                                ...p,
+                                variants: p.variants.map(x => x.id === v.id ? { ...x, color: e.target.value } : x)
+                              }))}
+                            />
+                            <Input
+                              className="h-9 text-sm"
+                              placeholder="Size"
+                              value={v.size}
+                              onChange={e => setFormData(p => ({
+                                ...p,
+                                variants: p.variants.map(x => x.id === v.id ? { ...x, size: e.target.value } : x)
+                              }))}
+                            />
+                            <Input
+                              className="h-9 text-sm"
+                              type="number"
+                              placeholder="Stock"
+                              value={v.stock}
+                              onChange={e => setFormData(p => ({
+                                ...p,
+                                variants: p.variants.map(x => x.id === v.id ? { ...x, stock: e.target.value } : x)
+                              }))}
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            className="col-span-1 h-8 w-8 text-destructive hover:bg-destructive/10"
+                            disabled={formData.variants.length === 1}
+                            onClick={() => setFormData(p => ({ ...p, variants: p.variants.filter(x => x.id !== v.id) }))}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
-            <DialogFooter><Button onClick={handleSave}>Save</Button></DialogFooter>
+            <DialogFooter><Button onClick={handleSave} disabled={isSaving}>{isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null} Save</Button></DialogFooter>
           </DialogContent>
         </Dialog>
       </header>
@@ -283,12 +313,32 @@ export default function InventoryPage() {
                      description: product.description,
                      price: product.price.toString(),
                      category: product.category,
-                     imagesText: (product.images ?? []).join("\n"),
+                     images: product.images ?? [],
                      variants: (product.variants ?? []).map(v => ({ id: v.id, color: v.color, size: v.size, stock: v.stock.toString() }))
                    });
                    setIsEditing(product.id);
                 }}><Edit2 className="h-4 w-4" /></Button>
-                <Button size="icon" variant="ghost" className="text-destructive" onClick={() => deleteProduct(storeId, product.id)}><Trash2 className="h-4 w-4" /></Button>
+                <Button 
+                  size="icon" 
+                  variant="ghost" 
+                  className="text-destructive" 
+                  disabled={isDeleting === product.id}
+                  onClick={async () => {
+                    if (confirm("Are you sure?")) {
+                      setIsDeleting(product.id);
+                      try {
+                        await deleteProduct(storeId, product.id);
+                        toast({ title: "Product deleted" });
+                      } catch (error) {
+                        toast({ title: "Delete failed", variant: "destructive" });
+                      } finally {
+                        setIsDeleting(null);
+                      }
+                    }
+                  }}
+                >
+                  {isDeleting === product.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                </Button>
               </div>
             </CardContent>
           </Card>

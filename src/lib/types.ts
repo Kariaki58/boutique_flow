@@ -40,6 +40,7 @@ export interface OrderItem {
 
 export interface Order {
   id: string;
+  orderNumber: string;
   storeId: string;
   customerName: string;
   customerPhone: string;
@@ -61,6 +62,8 @@ export interface StoreSettings {
   accountName: string;
   accountNumber: string;
   whatsappNumber: string;
+  primaryColor?: string;
+  banner?: string;
 }
 
 export interface BoutiqueStore {

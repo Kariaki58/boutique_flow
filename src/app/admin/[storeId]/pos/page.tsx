@@ -8,7 +8,7 @@ import { Product, OrderItem, PaymentMethod, ProductVariant } from '@/lib/types';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Search, Plus, Minus, Trash2, ShoppingCart, User, AlertCircle } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, ShoppingCart, User, AlertCircle, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { cn, formatNaira } from '@/lib/utils';
@@ -29,6 +29,7 @@ export default function PosPage() {
   const [carts, setCarts] = useState<Cart[]>([{ id: '1', name: 'Customer 1', items: [] }]);
   const [activeCartId, setActiveCartId] = useState('1');
   const [searchTerm, setSearchTerm] = useState('');
+  const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [variantPicker, setVariantPicker] = useState<{
     open: boolean;
     product: Product | null;
@@ -143,7 +144,7 @@ export default function PosPage() {
     });
   };
 
-  const handleCheckout = (method: PaymentMethod) => {
+  const handleCheckout = async (method: PaymentMethod) => {
     if (activeCart.items.length === 0) return;
 
     // Validate stock at checkout time (multiple carts can compete for the same inventory)
@@ -167,27 +168,34 @@ export default function PosPage() {
 
     const total = activeCart.items.reduce((sum, i) => sum + (i.price * i.quantity), 0);
     
-    placeOrder(storeId, {
-      customerName: activeCart.name,
-      customerPhone: 'In-Store',
-      items: activeCart.items,
-      total,
-      status: method === 'Cash' ? 'Completed' : 'Payment Submitted',
-      paymentMethod: method,
-      source: 'POS'
-    });
+    setIsCheckingOut(true);
+    try {
+      await placeOrder(storeId, {
+        customerName: activeCart.name,
+        customerPhone: 'In-Store',
+        items: activeCart.items,
+        total,
+        status: method === 'Cash' ? 'Completed' : 'Payment Submitted',
+        paymentMethod: method,
+        source: 'POS'
+      });
 
-    toast({ title: "Order Placed", description: `Order for ${activeCart.name} completed.` });
+      toast({ title: "Order Placed", description: `Order for ${activeCart.name} completed.` });
 
-    // Close the customer cart automatically after checkout
-    const remaining = carts.filter(c => c.id !== activeCartId);
-    if (remaining.length === 0) {
-      const newId = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-      setCarts([{ id: newId, name: 'Customer 1', items: [] }]);
-      setActiveCartId(newId);
-    } else {
-      setCarts(remaining);
-      setActiveCartId(remaining[0].id);
+      // Close the customer cart automatically after checkout
+      const remaining = carts.filter(c => c.id !== activeCartId);
+      if (remaining.length === 0) {
+        const newId = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+        setCarts([{ id: newId, name: 'Customer 1', items: [] }]);
+        setActiveCartId(newId);
+      } else {
+        setCarts(remaining);
+        setActiveCartId(remaining[0].id);
+      }
+    } catch (error) {
+      toast({ title: "Checkout failed", variant: "destructive" });
+    } finally {
+      setIsCheckingOut(false);
     }
   };
 
@@ -209,7 +217,7 @@ export default function PosPage() {
             <DialogTitle>Select Variant</DialogTitle>
           </DialogHeader>
           {variantPicker.product ? (
-            <div className="space-y-4">
+            <div className="max-h-[60vh] overflow-y-auto px-1 space-y-4">
               <div className="text-sm">
                 <div className="font-semibold">{variantPicker.product.name}</div>
                 <div className="text-muted-foreground">{formatNaira(variantPicker.product.price)}</div>
@@ -226,12 +234,12 @@ export default function PosPage() {
                         key={v.id}
                         type="button"
                         variant={selected ? "default" : "outline"}
-                        className={cn("justify-between", disabled && "opacity-50")}
+                        className={cn("justify-between h-auto py-2", disabled && "opacity-50")}
                         disabled={disabled}
                         onClick={() => setVariantPicker(p => ({ ...p, selectedVariantId: v.id }))}
                       >
-                        <span className="truncate">{v.color}/{v.size}</span>
-                        <span className="text-xs opacity-70">{v.stock}</span>
+                        <span className="truncate text-left">{v.color} / {v.size}</span>
+                        <span className="text-[10px] opacity-70 ml-2">{v.stock}</span>
                       </Button>
                     );
                   })}
@@ -426,8 +434,12 @@ export default function PosPage() {
                 <span className="text-2xl text-primary">{formatNaira(cartTotal)}</span>
               </div>
               <div className="grid grid-cols-2 gap-2 w-full">
-                <Button className="h-12 bg-green-600 hover:bg-green-700" disabled={activeCart.items.length === 0} onClick={() => handleCheckout('Cash')}>Cash</Button>
-                <Button className="h-12" disabled={activeCart.items.length === 0} onClick={() => handleCheckout('Bank Transfer')}>Transfer</Button>
+                <Button className="h-12 bg-green-600 hover:bg-green-700" disabled={activeCart.items.length === 0 || isCheckingOut} onClick={() => handleCheckout('Cash')}>
+                  {isCheckingOut ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null} Cash
+                </Button>
+                <Button className="h-12" disabled={activeCart.items.length === 0 || isCheckingOut} onClick={() => handleCheckout('Bank Transfer')}>
+                  {isCheckingOut ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null} Transfer
+                </Button>
               </div>
             </CardFooter>
           </Card>

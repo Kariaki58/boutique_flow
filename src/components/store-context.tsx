@@ -4,17 +4,19 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Product, Order, StoreSettings, OrderStatus, BoutiqueStore, ProductVariant } from '@/lib/types';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { ShoppingBag } from 'lucide-react';
 
 interface StoreContextType {
   stores: BoutiqueStore[];
-  createStore: (name: string) => string;
+  createStore: (name: string) => Promise<string>;
   getStore: (storeId: string) => BoutiqueStore | undefined;
-  addProduct: (storeId: string, product: Omit<Product, 'id' | 'status' | 'storeId'>) => void;
-  updateProduct: (storeId: string, id: string, updates: Partial<Product>) => void;
-  deleteProduct: (storeId: string, id: string) => void;
-  placeOrder: (storeId: string, order: Omit<Order, 'id' | 'createdAt' | 'storeId'>) => string;
-  updateOrderStatus: (storeId: string, id: string, status: OrderStatus) => void;
-  updateSettings: (storeId: string, settings: StoreSettings) => void;
+  addProduct: (storeId: string, product: Omit<Product, 'id' | 'status' | 'storeId'>) => Promise<void>;
+  updateProduct: (storeId: string, id: string, updates: Partial<Product>) => Promise<void>;
+  deleteProduct: (storeId: string, id: string) => Promise<void>;
+  placeOrder: (storeId: string, order: Omit<Order, 'id' | 'createdAt' | 'storeId'>) => Promise<string>;
+  updateOrderStatus: (storeId: string, id: string, status: OrderStatus) => Promise<void>;
+  updateSettings: (storeId: string, settings: StoreSettings) => Promise<void>;
+  loadPublicStore: (storeId: string) => Promise<void>;
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
@@ -86,178 +88,83 @@ function normalizeStore(raw: any): BoutiqueStore {
   };
 }
 
+import { getMyStores, getStoreById, createStore as createStoreAction, updateSettings as updateSettingsAction } from '@/lib/actions/stores';
+import { addProduct as addProductAction, updateProduct as updateProductAction, deleteProduct as deleteProductAction } from '@/lib/actions/products';
+import { placeOrder as placeOrderAction, updateOrderStatus as updateOrderStatusAction } from '@/lib/actions/orders';
+
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [stores, setStores] = useState<BoutiqueStore[]>([]);
-  const [initialized, setInitialized] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  const refreshStores = async () => {
+    try {
+      const data = await getMyStores();
+      setStores(data);
+    } catch (error) {
+      console.error("Failed to refresh stores:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      setStores(Array.isArray(parsed) ? parsed.map(normalizeStore) : []);
-    } else {
-      // Seed initial store
-      const initialId = 'demo-boutique';
-      const initialStore: BoutiqueStore = {
-        settings: {
-          id: initialId,
-          name: 'Boutique Flow',
-          description: 'Elevate your style with our curated collection.',
-          logo: 'https://picsum.photos/seed/logo/200/200',
-          bankName: 'Global Bank',
-          accountName: 'BOUTIQUE FLOW ENT',
-          accountNumber: '1234567890',
-          whatsappNumber: '+1234567890',
-        },
-        products: PlaceHolderImages.map((img, idx) =>
-          normalizeProduct({
-            id: `p-${idx}`,
-            storeId: initialId,
-            name: img.description,
-            description: `High-quality ${img.description.toLowerCase()} perfect for your collection.`,
-            price: Math.floor(Math.random() * 10000) + 500,
-            images: [img.imageUrl],
-            category: idx % 2 === 0 ? 'Clothing' : 'Accessories',
-            variants: [{ id: 'v-0', color: 'Default', size: 'One Size', stock: 10 }],
-          })
-        ),
-        orders: [],
-      };
-      setStores([initialStore]);
-    }
-    setInitialized(true);
+    refreshStores();
   }, []);
 
-  useEffect(() => {
-    if (initialized) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(stores));
-    }
-  }, [stores, initialized]);
-
-  const createStore = (name: string) => {
-    const id = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') + '-' + Math.random().toString(36).substr(2, 4);
-    const newStore: BoutiqueStore = {
-      settings: {
-        id,
-        name,
-        description: `Welcome to ${name}`,
-        logo: 'https://picsum.photos/seed/' + id + '/200/200',
-        bankName: '',
-        accountName: '',
-        accountNumber: '',
-        whatsappNumber: '',
-      },
-      products: [],
-      orders: [],
-    };
-    setStores(prev => [...prev, newStore]);
+  const createStore = async (name: string) => {
+    const id = await createStoreAction(name);
+    await refreshStores();
     return id;
   };
 
   const getStore = (storeId: string) => stores.find(s => s.settings.id === storeId);
 
-  const addProduct = (storeId: string, productData: Omit<Product, 'id' | 'status' | 'storeId'>) => {
-    setStores(prev => prev.map(store => {
-      if (store.settings.id === storeId) {
-        const normalized = normalizeProduct({
-          ...productData,
-          id: Math.random().toString(36).substr(2, 9),
-          storeId,
-        });
-        const newProduct: Product = normalized;
-        return { ...store, products: [newProduct, ...store.products] };
-      }
-      return store;
-    }));
+  const addProduct = async (storeId: string, productData: any) => {
+    await addProductAction(storeId, productData);
+    await refreshStores();
   };
 
-  const updateProduct = (storeId: string, id: string, updates: Partial<Product>) => {
-    setStores(prev => prev.map(store => {
-      if (store.settings.id === storeId) {
-        return {
-          ...store,
-          products: store.products.map(p => {
-            if (p.id === id) {
-              const merged = { ...p, ...updates };
-              return normalizeProduct(merged);
-            }
-            return p;
-          })
-        };
-      }
-      return store;
-    }));
+  const updateProduct = async (storeId: string, id: string, updates: any) => {
+    await updateProductAction(storeId, id, updates);
+    await refreshStores();
   };
 
-  const deleteProduct = (storeId: string, id: string) => {
-    setStores(prev => prev.map(store => {
-      if (store.settings.id === storeId) {
-        return { ...store, products: store.products.filter(p => p.id !== id) };
-      }
-      return store;
-    }));
+  const deleteProduct = async (storeId: string, id: string) => {
+    await deleteProductAction(storeId, id);
+    await refreshStores();
   };
 
-  const placeOrder = (storeId: string, orderData: Omit<Order, 'id' | 'createdAt' | 'storeId'>) => {
-    const id = `ORD-${Math.random().toString(36).toUpperCase().substr(2, 6)}`;
-    const newOrder: Order = {
-      ...orderData,
-      id,
-      storeId,
-      createdAt: new Date().toISOString(),
-    };
-
-    setStores(prev => prev.map(store => {
-      if (store.settings.id === storeId) {
-        // Update stock levels
-        const updatedProducts = store.products.map(p => {
-          const items = orderData.items.filter(i => i.productId === p.id);
-          if (items.length === 0) return p;
-
-          const nextVariants = p.variants.map(v => {
-            const consumed = items
-              .filter(i => i.variantId === v.id)
-              .reduce((sum, i) => sum + i.quantity, 0);
-            if (consumed <= 0) return v;
-            return { ...v, stock: Math.max(0, v.stock - consumed) };
-          });
-
-          const nextStock = computeProductStockFromVariants(nextVariants);
-          return {
-            ...p,
-            variants: nextVariants,
-            stock: nextStock,
-            status: computeProductStatus(nextStock),
-          };
-        });
-        return { 
-          ...store, 
-          orders: [newOrder, ...store.orders],
-          products: updatedProducts
-        };
-      }
-      return store;
-    }));
-
+  const placeOrder = async (storeId: string, orderData: any) => {
+    const id = await placeOrderAction(storeId, orderData);
+    await refreshStores();
     return id;
   };
 
-  const updateOrderStatus = (storeId: string, id: string, status: OrderStatus) => {
-    setStores(prev => prev.map(store => {
-      if (store.settings.id === storeId) {
-        return { ...store, orders: store.orders.map(o => o.id === id ? { ...o, status } : o) };
-      }
-      return store;
-    }));
+  const updateOrderStatus = async (storeId: string, id: string, status: OrderStatus) => {
+    await updateOrderStatusAction(storeId, id, status);
+    await refreshStores();
   };
 
-  const updateSettings = (storeId: string, newSettings: StoreSettings) => {
-    setStores(prev => prev.map(store => {
-      if (store.settings.id === storeId) {
-        return { ...store, settings: newSettings };
+  const updateSettings = async (storeId: string, newSettings: StoreSettings) => {
+    await updateSettingsAction(storeId, newSettings);
+    await refreshStores();
+  };
+
+  const loadPublicStore = async (storeId: string) => {
+    // If already loaded, don't fetch again
+    if (stores.find(s => s.settings.id === storeId)) return;
+
+    try {
+      const store = await getStoreById(storeId);
+      if (store) {
+        setStores(prev => {
+          if (prev.find(s => s.settings.id === storeId)) return prev;
+          return [...prev, store];
+        });
       }
-      return store;
-    }));
+    } catch (error) {
+      console.error("Failed to load public store:", error);
+    }
   };
 
   return (
@@ -270,9 +177,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       deleteProduct, 
       placeOrder, 
       updateOrderStatus, 
-      updateSettings 
+      updateSettings,
+      loadPublicStore
     }}>
-      {children}
+      {loading ? (
+        <div className="min-h-screen flex items-center justify-center bg-[#F9F4F7]">
+          <div className="flex flex-col items-center gap-4">
+            <ShoppingBag className="w-10 h-10 text-primary animate-pulse" />
+            <p className="text-sm font-medium text-muted-foreground">Initializing Boutique Flow…</p>
+          </div>
+        </div>
+      ) : children}
     </StoreContext.Provider>
   );
 };
