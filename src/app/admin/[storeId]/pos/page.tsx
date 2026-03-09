@@ -177,7 +177,8 @@ export default function PosPage() {
         total,
         status: method === 'Cash' ? 'Completed' : 'Payment Submitted',
         paymentMethod: method,
-        source: 'POS'
+        source: 'POS',
+        deliveryMethod: 'Pickup'
       });
 
       toast({ title: "Order Placed", description: `Order for ${activeCart.name} completed.` });

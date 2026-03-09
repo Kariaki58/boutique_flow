@@ -13,7 +13,7 @@ interface StoreContextType {
   addProduct: (storeId: string, product: Omit<Product, 'id' | 'status' | 'storeId'>) => Promise<void>;
   updateProduct: (storeId: string, id: string, updates: Partial<Product>) => Promise<void>;
   deleteProduct: (storeId: string, id: string) => Promise<void>;
-  placeOrder: (storeId: string, order: Omit<Order, 'id' | 'createdAt' | 'storeId'>) => Promise<string>;
+  placeOrder: (storeId: string, order: Omit<Order, 'id' | 'createdAt' | 'storeId' | 'orderNumber'>) => Promise<string>;
   updateOrderStatus: (storeId: string, id: string, status: OrderStatus) => Promise<void>;
   updateSettings: (storeId: string, settings: StoreSettings) => Promise<void>;
   loadPublicStore: (storeId: string) => Promise<void>;

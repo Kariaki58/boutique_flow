@@ -60,6 +60,8 @@ export async function getMyStores(): Promise<BoutiqueStore[]> {
         paymentMethod: o.payment_method,
         paymentProofUrl: o.payment_proof_url,
         source: o.source,
+        deliveryMethod: o.delivery_method || 'Pickup',
+        deliveryAddress: o.delivery_address,
         createdAt: o.created_at,
         items: (o.order_items ?? []).map((i: any) => ({
           productId: i.product_id,
@@ -146,6 +148,8 @@ export async function getStoreById(storeId: string): Promise<BoutiqueStore | nul
     paymentMethod: o.payment_method,
     paymentProofUrl: o.payment_proof_url,
     source: o.source,
+    deliveryMethod: o.delivery_method || 'Pickup',
+    deliveryAddress: o.delivery_address,
     createdAt: o.created_at,
     items: (o.order_items ?? []).map((i: any) => ({
       productId: i.product_id,

@@ -18,7 +18,9 @@ import {
   Share2, 
   ChevronLeft,
   Loader2,
-  Copy
+  Copy,
+  Truck,
+  Store
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
@@ -45,6 +47,8 @@ export default function ProductDetailPage() {
   const [paymentMethod, setPaymentMethod] = useState<'Bank Transfer' | 'Cash'>('Bank Transfer');
   const [customerInfo, setCustomerInfo] = useState({ name: '', phone: '' });
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  const [deliveryMethod, setDeliveryMethod] = useState<'Pickup' | 'Delivery'>('Pickup');
+  const [deliveryAddress, setDeliveryAddress] = useState('');
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
 
@@ -145,7 +149,9 @@ export default function ProductDetailPage() {
         total: product.price * quantity,
         status: paymentMethod === 'Bank Transfer' ? 'Pending Payment' : 'Confirmed',
         paymentMethod: paymentMethod,
-        source: 'Storefront'
+        source: 'Storefront',
+        deliveryMethod,
+        deliveryAddress: deliveryMethod === 'Delivery' ? deliveryAddress : undefined
       });
 
       setOrderNumber(orderNum);
@@ -314,6 +320,46 @@ export default function ProductDetailPage() {
                   placeholder="+1 (234) 567-890"
                 />
               </div>
+            </CardContent>
+          </Card>
+ 
+          <Card>
+            <CardHeader className="p-4">
+              <CardTitle className="text-sm">Delivery Method</CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 pt-0 space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <Button 
+                  type="button"
+                  variant={deliveryMethod === 'Pickup' ? 'default' : 'outline'}
+                  onClick={() => setDeliveryMethod('Pickup')}
+                  className="h-16 flex flex-col items-center justify-center gap-1"
+                >
+                  <Store className="w-5 h-5" />
+                  <span className="text-[10px] font-bold uppercase tracking-wider">Pickup</span>
+                </Button>
+                <Button 
+                  type="button"
+                  variant={deliveryMethod === 'Delivery' ? 'default' : 'outline'}
+                  onClick={() => setDeliveryMethod('Delivery')}
+                  className="h-16 flex flex-col items-center justify-center gap-1"
+                >
+                  <Truck className="w-5 h-5" />
+                  <span className="text-[10px] font-bold uppercase tracking-wider">Delivery</span>
+                </Button>
+              </div>
+
+              {deliveryMethod === 'Delivery' && (
+                <div className="grid gap-2 pt-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <Label htmlFor="deliveryAddr">Store Address</Label>
+                  <Input 
+                    id="deliveryAddr" 
+                    value={deliveryAddress} 
+                    onChange={e => setDeliveryAddress(e.target.value)} 
+                    placeholder="Enter your full home address"
+                  />
+                </div>
+              )}
             </CardContent>
           </Card>
 

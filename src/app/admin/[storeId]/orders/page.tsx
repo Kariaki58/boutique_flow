@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, Phone, CreditCard, CheckCircle2, XCircle, Clock, Loader2 } from 'lucide-react';
+import { Search, Phone, CreditCard, CheckCircle2, XCircle, Clock, Loader2, Truck, Store } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { formatNaira } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -84,6 +84,27 @@ export default function OrdersPage() {
                {formatNaira(order.total)}
              </div>
           </div>
+           
+           <div className="bg-muted/30 p-3 rounded-lg flex flex-col gap-2 border border-dashed">
+              <div className="flex items-center justify-between text-xs">
+                 <span className="text-muted-foreground uppercase tracking-widest font-semibold flex items-center gap-1">
+                    {order.deliveryMethod === 'Delivery' ? <Truck className="w-3 h-3" /> : <Store className="w-3 h-3" />}
+                    {order.deliveryMethod}
+                 </span>
+                 {order.deliveryMethod === 'Delivery' && (
+                   <span className="text-primary font-medium">Home Delivery</span>
+                 )}
+              </div>
+              {order.deliveryMethod === 'Delivery' && order.deliveryAddress && (
+                <div className="text-xs">
+                   <p className="text-muted-foreground mb-1">Address:</p>
+                   <p className="font-medium bg-white p-2 rounded border">{order.deliveryAddress}</p>
+                </div>
+              )}
+              {order.deliveryMethod === 'Pickup' && (
+                <p className="text-[10px] text-muted-foreground italic">Customer will pick up from the store.</p>
+              )}
+           </div>
            <div className="flex gap-2">
              {(order.status === 'Payment Submitted' || order.status === 'Pending Payment') && (
                <AlertDialog>

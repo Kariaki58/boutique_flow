@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { Order, OrderStatus } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 
-type PlaceOrderInput = Omit<Order, 'id' | 'createdAt' | 'storeId'>;
+type PlaceOrderInput = Omit<Order, 'id' | 'createdAt' | 'storeId' | 'orderNumber'>;
 
 export async function placeOrder(storeId: string, orderData: PlaceOrderInput): Promise<string> {
   const supabase = await createClient();
@@ -22,6 +22,8 @@ export async function placeOrder(storeId: string, orderData: PlaceOrderInput): P
       payment_method: orderData.paymentMethod,
       payment_proof_url: orderData.paymentProofUrl ?? null,
       source: orderData.source,
+      delivery_method: orderData.deliveryMethod,
+      delivery_address: orderData.deliveryAddress ?? null,
     })
     .select()
     .single();

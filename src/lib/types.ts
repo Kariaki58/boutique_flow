@@ -51,6 +51,8 @@ export interface Order {
   paymentProofUrl?: string;
   createdAt: string;
   source: 'POS' | 'Storefront';
+  deliveryMethod: 'Pickup' | 'Delivery';
+  deliveryAddress?: string;
 }
 
 export interface StoreSettings {
