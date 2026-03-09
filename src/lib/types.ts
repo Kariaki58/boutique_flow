@@ -3,6 +3,7 @@ export type ProductStatus = 'In Stock' | 'Out of Stock';
 
 export interface Product {
   id: string;
+  storeId: string;
   name: string;
   description: string;
   price: number;
@@ -24,6 +25,7 @@ export interface OrderItem {
 
 export interface Order {
   id: string;
+  storeId: string;
   customerName: string;
   customerPhone: string;
   items: OrderItem[];
@@ -36,6 +38,7 @@ export interface Order {
 }
 
 export interface StoreSettings {
+  id: string;
   name: string;
   description: string;
   logo: string;
@@ -43,4 +46,10 @@ export interface StoreSettings {
   accountName: string;
   accountNumber: string;
   whatsappNumber: string;
+}
+
+export interface BoutiqueStore {
+  settings: StoreSettings;
+  products: Product[];
+  orders: Order[];
 }
