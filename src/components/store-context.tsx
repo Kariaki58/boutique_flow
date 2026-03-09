@@ -2,7 +2,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Product, Order, StoreSettings, OrderStatus, BoutiqueStore } from '@/lib/types';
+import { Product, Order, StoreSettings, OrderStatus, BoutiqueStore, ProductVariant } from '@/lib/types';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 
 interface StoreContextType {
@@ -21,6 +21,71 @@ const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
 const STORAGE_KEY = 'boutique_flow_stores';
 
+function safeString(v: unknown, fallback = "") {
+  return typeof v === "string" ? v : fallback;
+}
+
+function safeNumber(v: unknown, fallback = 0) {
+  return typeof v === "number" && Number.isFinite(v) ? v : fallback;
+}
+
+function computeProductStockFromVariants(variants: ProductVariant[]) {
+  return variants.reduce((sum, v) => sum + (Number.isFinite(v.stock) ? v.stock : 0), 0);
+}
+
+function computeProductStatus(stock: number): Product["status"] {
+  return stock > 0 ? "In Stock" : "Out of Stock";
+}
+
+function normalizeProduct(raw: any): Product {
+  const images: string[] =
+    Array.isArray(raw?.images) && raw.images.every((x: any) => typeof x === "string")
+      ? raw.images.filter(Boolean)
+      : typeof raw?.image === "string" && raw.image
+        ? [raw.image]
+        : [];
+
+  const variants: ProductVariant[] =
+    Array.isArray(raw?.variants) && raw.variants.length > 0
+      ? raw.variants.map((v: any, idx: number) => ({
+          id: safeString(v?.id, `v-${idx}`),
+          color: safeString(v?.color, "Default"),
+          size: safeString(v?.size, "One Size"),
+          stock: safeNumber(v?.stock, 0),
+        }))
+      : [
+          {
+            id: "v-0",
+            color: "Default",
+            size: "One Size",
+            stock: safeNumber(raw?.stock, 0),
+          },
+        ];
+
+  const stock = computeProductStockFromVariants(variants);
+
+  return {
+    id: safeString(raw?.id),
+    storeId: safeString(raw?.storeId),
+    name: safeString(raw?.name),
+    description: safeString(raw?.description),
+    price: safeNumber(raw?.price, 0),
+    images: images.length > 0 ? images : ["https://picsum.photos/seed/product/600/800"],
+    category: safeString(raw?.category, "Clothing"),
+    variants,
+    stock,
+    status: computeProductStatus(stock),
+  };
+}
+
+function normalizeStore(raw: any): BoutiqueStore {
+  return {
+    settings: raw.settings,
+    products: Array.isArray(raw?.products) ? raw.products.map(normalizeProduct) : [],
+    orders: Array.isArray(raw?.orders) ? raw.orders : [],
+  };
+}
+
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [stores, setStores] = useState<BoutiqueStore[]>([]);
   const [initialized, setInitialized] = useState(false);
@@ -28,7 +93,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
-      setStores(JSON.parse(saved));
+      const parsed = JSON.parse(saved);
+      setStores(Array.isArray(parsed) ? parsed.map(normalizeStore) : []);
     } else {
       // Seed initial store
       const initialId = 'demo-boutique';
@@ -43,17 +109,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           accountNumber: '1234567890',
           whatsappNumber: '+1234567890',
         },
-        products: PlaceHolderImages.map((img, idx) => ({
-          id: `p-${idx}`,
-          storeId: initialId,
-          name: img.description,
-          description: `High-quality ${img.description.toLowerCase()} perfect for your collection.`,
-          price: Math.floor(Math.random() * 10000) + 500,
-          image: img.imageUrl,
-          category: idx % 2 === 0 ? 'Clothing' : 'Accessories',
-          stock: 10,
-          status: 'In Stock',
-        })),
+        products: PlaceHolderImages.map((img, idx) =>
+          normalizeProduct({
+            id: `p-${idx}`,
+            storeId: initialId,
+            name: img.description,
+            description: `High-quality ${img.description.toLowerCase()} perfect for your collection.`,
+            price: Math.floor(Math.random() * 10000) + 500,
+            images: [img.imageUrl],
+            category: idx % 2 === 0 ? 'Clothing' : 'Accessories',
+            variants: [{ id: 'v-0', color: 'Default', size: 'One Size', stock: 10 }],
+          })
+        ),
         orders: [],
       };
       setStores([initialStore]);
@@ -92,12 +159,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const addProduct = (storeId: string, productData: Omit<Product, 'id' | 'status' | 'storeId'>) => {
     setStores(prev => prev.map(store => {
       if (store.settings.id === storeId) {
-        const newProduct: Product = {
+        const normalized = normalizeProduct({
           ...productData,
           id: Math.random().toString(36).substr(2, 9),
           storeId,
-          status: productData.stock > 0 ? 'In Stock' : 'Out of Stock',
-        };
+        });
+        const newProduct: Product = normalized;
         return { ...store, products: [newProduct, ...store.products] };
       }
       return store;
@@ -111,9 +178,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           ...store,
           products: store.products.map(p => {
             if (p.id === id) {
-              const updated = { ...p, ...updates };
-              updated.status = updated.stock > 0 ? 'In Stock' : 'Out of Stock';
-              return updated;
+              const merged = { ...p, ...updates };
+              return normalizeProduct(merged);
             }
             return p;
           })
@@ -145,12 +211,24 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (store.settings.id === storeId) {
         // Update stock levels
         const updatedProducts = store.products.map(p => {
-          const item = orderData.items.find(i => i.productId === p.id);
-          if (item) {
-            const newStock = Math.max(0, p.stock - item.quantity);
-            return { ...p, stock: newStock, status: newStock > 0 ? 'In Stock' as const : 'Out of Stock' as const };
-          }
-          return p;
+          const items = orderData.items.filter(i => i.productId === p.id);
+          if (items.length === 0) return p;
+
+          const nextVariants = p.variants.map(v => {
+            const consumed = items
+              .filter(i => i.variantId === v.id)
+              .reduce((sum, i) => sum + i.quantity, 0);
+            if (consumed <= 0) return v;
+            return { ...v, stock: Math.max(0, v.stock - consumed) };
+          });
+
+          const nextStock = computeProductStockFromVariants(nextVariants);
+          return {
+            ...p,
+            variants: nextVariants,
+            stock: nextStock,
+            status: computeProductStatus(nextStock),
+          };
         });
         return { 
           ...store, 

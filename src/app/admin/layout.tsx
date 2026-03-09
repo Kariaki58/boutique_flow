@@ -9,8 +9,8 @@ export default function AdminLayout({
   return (
     <div className="min-h-screen bg-[#F9F4F7] flex flex-col md:flex-row">
       <AdminNav />
-      <main className="flex-1 pb-20 md:pb-0 md:pl-24 overflow-x-hidden">
-        <div className="max-w-4xl mx-auto p-4 md:p-8">
+      <main className="flex-1 pb-24 md:pb-0 overflow-x-hidden">
+        <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
           {children}
         </div>
       </main>

@@ -15,6 +15,7 @@ import {
   Heart
 } from 'lucide-react';
 import Link from 'next/link';
+import { formatNaira } from '@/lib/utils';
 
 export default function PublicStorefront() {
   const { storeId } = useParams() as { storeId: string };
@@ -107,7 +108,7 @@ export default function PublicStorefront() {
               <Card className="border-none shadow-sm hover:shadow-md transition-shadow h-full overflow-hidden flex flex-col rounded-2xl group">
                 <div className="aspect-[3/4] overflow-hidden relative">
                   <img 
-                    src={product.image} 
+                    src={product.images?.[0] ?? "https://picsum.photos/seed/product/600/800"} 
                     alt={product.name} 
                     className="w-full h-full object-cover transition-transform group-hover:scale-105" 
                   />
@@ -126,7 +127,7 @@ export default function PublicStorefront() {
                   <p className="text-[10px] text-muted-foreground uppercase font-semibold">{product.category}</p>
                   <h3 className="font-semibold text-sm line-clamp-1 group-hover:text-primary transition-colors">{product.name}</h3>
                   <div className="flex items-center justify-between mt-2">
-                    <span className="text-primary font-bold">${product.price}</span>
+                    <span className="text-primary font-bold">{formatNaira(product.price)}</span>
                     <ArrowRight className="w-4 h-4 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
                 </CardContent>

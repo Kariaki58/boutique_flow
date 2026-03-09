@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Search, Phone, CreditCard, CheckCircle2, XCircle, Clock } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { formatNaira } from '@/lib/utils';
 
 export default function OrdersPage() {
   const { storeId } = useParams() as { storeId: string };
@@ -52,7 +53,7 @@ export default function OrdersPage() {
              <p className="text-xs text-muted-foreground flex items-center gap-1"><Phone className="w-3 h-3" /> {order.customerPhone}</p>
            </div>
            <div className="text-right font-bold text-lg">
-             ${order.total}
+             {formatNaira(order.total)}
            </div>
         </div>
         <div className="flex gap-2">

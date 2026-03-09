@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useStore } from '@/components/store-context';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,8 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
+import { cn, formatNaira } from '@/lib/utils';
+import { ProductImageCarousel } from '@/components/products/product-image-carousel';
 
 export default function ProductDetailPage() {
   const { storeId, id } = useParams() as { storeId: string, id: string };
@@ -32,13 +34,39 @@ export default function ProductDetailPage() {
   const [step, setStep] = useState<'details' | 'checkout' | 'success'>('details');
   const [paymentMethod, setPaymentMethod] = useState<'Bank Transfer' | 'Cash'>('Bank Transfer');
   const [customerInfo, setCustomerInfo] = useState({ name: '', phone: '' });
+  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
+
+  const product = store?.products.find(p => p.id === id);
+  const settings = store?.settings;
+
+  useEffect(() => {
+    if (product) {
+      setSelectedVariantId(product.variants[0]?.id ?? null);
+      setQuantity(1);
+    }
+  }, [product?.id]);
+
+  const selectedVariant = useMemo(() => {
+    if (!product) return null;
+    return product.variants.find(v => v.id === selectedVariantId) ?? product.variants[0];
+  }, [product?.variants, selectedVariantId]);
+
+  const selectedColor = selectedVariant?.color ?? "Default";
+  const selectedSize = selectedVariant?.size ?? "One Size";
+
+  const allColors = useMemo(() => {
+    if (!product) return [];
+    return Array.from(new Set(product.variants.map(v => v.color)));
+  }, [product?.variants]);
+
+  const sizesForSelectedColor = useMemo(() => {
+    if (!product) return [];
+    return Array.from(new Set(product.variants.filter(v => v.color === selectedColor).map(v => v.size)));
+  }, [product?.variants, selectedColor]);
 
   if (!store) return <p>Store not found</p>;
 
-  const product = store.products.find(p => p.id === id);
-  const { settings } = store;
-
-  if (!product) {
+  if (!product || !settings) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4">
         <p className="text-muted-foreground mb-4">Product not found</p>
@@ -49,16 +77,34 @@ export default function ProductDetailPage() {
     );
   }
 
+  const maxQty = selectedVariant?.stock ?? 0;
+
   const handlePlaceOrder = () => {
     if (!customerInfo.name || !customerInfo.phone) {
       toast({ title: "Details required", description: "Please enter your name and phone number.", variant: "destructive" });
+      return;
+    }
+    if (!selectedVariant || selectedVariant.stock <= 0) {
+      toast({ title: "Out of stock", description: "This variant is out of stock.", variant: "destructive" });
+      return;
+    }
+    if (quantity > selectedVariant.stock) {
+      toast({ title: "Not enough stock", description: "Please reduce quantity.", variant: "destructive" });
       return;
     }
 
     placeOrder(storeId, {
       customerName: customerInfo.name,
       customerPhone: customerInfo.phone,
-      items: [{ productId: product.id, name: product.name, price: product.price, quantity }],
+      items: [{
+        productId: product.id,
+        variantId: selectedVariant.id,
+        variantColor: selectedVariant.color,
+        variantSize: selectedVariant.size,
+        name: product.name,
+        price: product.price,
+        quantity
+      }],
       total: product.price * quantity,
       status: paymentMethod === 'Bank Transfer' ? 'Pending Payment' : 'Confirmed',
       paymentMethod: paymentMethod,
@@ -69,7 +115,8 @@ export default function ProductDetailPage() {
   };
 
   const handleWhatsAppOrder = () => {
-    const text = `Hello ${settings.name}, I'm interested in the ${product.name} (Qty: ${quantity}). Total: $${product.price * quantity}. Product link: ${window.location.href}`;
+    const variantText = selectedVariant ? ` (${selectedVariant.color}/${selectedVariant.size})` : "";
+    const text = `Hello ${settings.name}, I'm interested in the ${product.name}${variantText} (Qty: ${quantity}). Total: ${formatNaira(product.price * quantity)}. Product link: ${window.location.href}`;
     const url = `https://wa.me/${settings.whatsappNumber.replace(/\D/g, '')}?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
   };
@@ -103,7 +150,7 @@ export default function ProductDetailPage() {
                 <span className="text-muted-foreground">Number:</span>
                 <span className="font-semibold">{settings.accountNumber}</span>
                 <span className="text-muted-foreground mt-2 border-t pt-2">Total:</span>
-                <span className="font-bold text-primary mt-2 border-t pt-2">${product.price * quantity}</span>
+                <span className="font-bold text-primary mt-2 border-t pt-2">{formatNaira(product.price * quantity)}</span>
               </div>
               <p className="text-[10px] text-muted-foreground mt-4">Please upload payment proof to our WhatsApp to confirm your order.</p>
             </CardContent>
@@ -131,8 +178,11 @@ export default function ProductDetailPage() {
             </CardHeader>
             <CardContent className="p-4 pt-0 space-y-2">
               <div className="flex justify-between text-sm">
-                <span>{quantity}x {product.name}</span>
-                <span className="font-bold">${product.price * quantity}</span>
+                <span>
+                  {quantity}x {product.name}
+                  {selectedVariant ? <span className="text-muted-foreground"> • {selectedVariant.color}/{selectedVariant.size}</span> : null}
+                </span>
+                <span className="font-bold">{formatNaira(product.price * quantity)}</span>
               </div>
             </CardContent>
           </Card>
@@ -209,20 +259,74 @@ export default function ProductDetailPage() {
       </header>
 
       <div className="max-w-md mx-auto pb-24">
-        <div className="aspect-[3/4] bg-muted w-full">
-          <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
-        </div>
+        <ProductImageCarousel images={product.images} />
 
         <div className="p-6 space-y-6 -mt-6 bg-white rounded-t-3xl relative z-10 shadow-[0_-10px_30px_rgba(0,0,0,0.1)]">
           <div>
             <div className="flex justify-between items-start mb-2">
               <Badge variant="secondary" className="uppercase tracking-widest text-[10px]">{product.category}</Badge>
-              <span className="text-2xl font-bold text-primary">${product.price}</span>
+              <span className="text-2xl font-bold text-primary">{formatNaira(product.price)}</span>
             </div>
             <h1 className="text-2xl font-bold">{product.name}</h1>
             <p className="text-muted-foreground text-sm mt-3 leading-relaxed">
               {product.description}
             </p>
+          </div>
+
+          {/* Variant Selection */}
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold">Color</span>
+                {selectedVariant ? (
+                  <span className="text-xs text-muted-foreground">{selectedVariant.stock} in stock</span>
+                ) : null}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {allColors.map(color => (
+                  <Button
+                    key={color}
+                    type="button"
+                    variant={selectedColor === color ? "default" : "outline"}
+                    size="sm"
+                    className="rounded-full"
+                    onClick={() => {
+                      const nextVariant = product.variants.find(v => v.color === color && v.stock > 0) ?? product.variants.find(v => v.color === color);
+                      setSelectedVariantId(nextVariant?.id ?? null);
+                      setQuantity(1);
+                    }}
+                  >
+                    {color}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-sm font-semibold">Size</span>
+              <div className="flex flex-wrap gap-2">
+                {sizesForSelectedColor.map(size => {
+                  const variant = product.variants.find(v => v.color === selectedColor && v.size === size);
+                  const disabled = !variant || (variant.stock ?? 0) <= 0;
+                  return (
+                    <Button
+                      key={size}
+                      type="button"
+                      variant={selectedSize === size ? "default" : "outline"}
+                      size="sm"
+                      className={cn("rounded-full", disabled && "opacity-50")}
+                      disabled={disabled}
+                      onClick={() => {
+                        setSelectedVariantId(variant?.id ?? null);
+                        setQuantity(1);
+                      }}
+                    >
+                      {size}
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
 
           <div className="flex items-center justify-between py-4 border-y">
@@ -232,7 +336,13 @@ export default function ProductDetailPage() {
                 <Minus className="w-4 h-4" />
               </Button>
               <span className="font-bold w-4 text-center">{quantity}</span>
-              <Button size="icon" variant="ghost" className="h-8 w-8 rounded-full" onClick={() => setQuantity(quantity + 1)}>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8 rounded-full"
+                disabled={maxQty > 0 ? quantity >= maxQty : true}
+                onClick={() => setQuantity(q => Math.min(maxQty, q + 1))}
+              >
                 <Plus className="w-4 h-4" />
               </Button>
             </div>
@@ -242,7 +352,7 @@ export default function ProductDetailPage() {
             <Button 
               className="w-full h-14 text-lg font-bold rounded-2xl" 
               onClick={() => setStep('checkout')}
-              disabled={product.status === 'Out of Stock'}
+              disabled={!selectedVariant || selectedVariant.stock <= 0}
             >
               Order Now
             </Button>

@@ -38,7 +38,4 @@
   }
 }
 
-.pwa-bottom-nav {
-  @apply fixed bottom-0 left-0 right-0 bg-white border-t flex justify-around items-center h-16 z-50 px-4;
-  padding-bottom: env(safe-area-inset-bottom);
-}
+/* (previously used by the admin nav; now handled directly in the component) */

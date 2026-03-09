@@ -1,15 +1,27 @@
 
 export type ProductStatus = 'In Stock' | 'Out of Stock';
 
+export interface ProductVariant {
+  id: string;
+  color: string;
+  size: string;
+  stock: number;
+}
+
 export interface Product {
   id: string;
   storeId: string;
   name: string;
   description: string;
   price: number;
-  image: string;
+  images: string[];
   category: string;
+  /**
+   * Total stock across all variants. Kept as a denormalized convenience value for UI/filters.
+   * Always recomputed from `variants`.
+   */
   stock: number;
+  variants: ProductVariant[];
   status: ProductStatus;
 }
 
@@ -18,6 +30,9 @@ export type PaymentMethod = 'Bank Transfer' | 'Cash';
 
 export interface OrderItem {
   productId: string;
+  variantId: string;
+  variantColor: string;
+  variantSize: string;
   name: string;
   quantity: number;
   price: number;

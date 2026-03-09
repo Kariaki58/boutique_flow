@@ -6,6 +6,7 @@ import { useStore } from '@/components/store-context';
 import { useParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { formatNaira } from '@/lib/utils';
 import { 
   Sparkles,
   ArrowUpRight
@@ -56,30 +57,35 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-6">
-      <header className="flex items-center justify-between">
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold">Dashboard</h1>
           <p className="text-muted-foreground">Welcome back, {store.settings.name} Owner</p>
         </div>
-        <Button onClick={handleGenerateInsights} disabled={loadingInsights || orders.length === 0} size="sm" className="gap-2">
+        <Button
+          onClick={handleGenerateInsights}
+          disabled={loadingInsights || orders.length === 0}
+          size="sm"
+          className="gap-2 w-full sm:w-auto"
+        >
           {loadingInsights ? <Sparkles className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
           AI Insights
         </Button>
       </header>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+        <Card className="h-full">
           <CardHeader className="p-4 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Revenue</CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0">
-            <div className="text-2xl font-bold">${totalRevenue.toLocaleString()}</div>
+            <div className="text-2xl font-bold">{formatNaira(totalRevenue)}</div>
             <div className="text-xs text-green-600 flex items-center mt-1">
               <ArrowUpRight className="w-3 h-3 mr-1" /> +12%
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="h-full">
           <CardHeader className="p-4 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Sales</CardTitle>
           </CardHeader>
@@ -88,7 +94,7 @@ export default function AdminDashboard() {
             <div className="text-xs text-muted-foreground mt-1">Completed orders</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="h-full">
           <CardHeader className="p-4 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Pending</CardTitle>
           </CardHeader>
@@ -97,7 +103,7 @@ export default function AdminDashboard() {
             <div className="text-xs text-muted-foreground mt-1">Awaiting payment</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="h-full">
           <CardHeader className="p-4 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Low Stock</CardTitle>
           </CardHeader>
@@ -149,12 +155,12 @@ export default function AdminDashboard() {
         </Card>
       )}
 
-      <div className="grid md:grid-cols-2 gap-6">
-        <Card>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card className="h-full flex flex-col">
           <CardHeader>
             <CardTitle className="text-lg">Recent Orders</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex-1">
             <div className="space-y-4">
               {orders.slice(0, 5).map(order => (
                 <div key={order.id} className="flex items-center justify-between border-b pb-2 last:border-0">
@@ -163,7 +169,7 @@ export default function AdminDashboard() {
                     <p className="text-xs text-muted-foreground">{new Date(order.createdAt).toLocaleDateString()}</p>
                   </div>
                   <div className="text-right">
-                    <p className="font-bold text-sm">${order.total}</p>
+                    <p className="font-bold text-sm">{formatNaira(order.total)}</p>
                     <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground uppercase">
                       {order.status}
                     </span>
@@ -179,11 +185,11 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="h-full flex flex-col">
           <CardHeader>
             <CardTitle className="text-lg">Best Selling Products</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex-1">
             {insights?.bestSellingProducts ? (
               <div className="space-y-4">
                 {insights.bestSellingProducts.map((p, i) => (
@@ -192,7 +198,7 @@ export default function AdminDashboard() {
                       <p className="font-medium text-sm">{p.productName}</p>
                       <p className="text-xs text-muted-foreground">{p.salesVolume} sold</p>
                     </div>
-                    <p className="font-bold text-sm text-primary">${p.totalRevenue}</p>
+                    <p className="font-bold text-sm text-primary">{formatNaira(p.totalRevenue)}</p>
                   </div>
                 ))}
               </div>
