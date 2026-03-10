@@ -122,7 +122,9 @@ export default function PublicStorefront() {
           <Badge className="mb-4 bg-white/20 hover:bg-white/30 text-white border-white/20 backdrop-blur-sm px-4 py-1">
             New arrivals
           </Badge>
-          <h2 className="text-4xl md:text-5xl font-extrabold mb-3 tracking-tight">Summer Collection 2024</h2>
+          <h2 className="text-4xl md:text-5xl font-extrabold mb-3 tracking-tight">
+            Summer Collection {new Date().getFullYear()}
+          </h2>
           <p className="text-white/80 mb-8 text-sm md:text-base max-w-sm font-medium leading-relaxed">{settings.description}</p>
           <Button variant="secondary" className="font-bold px-8 h-12 rounded-xl shadow-lg ring-2 ring-white/10">Explore New Arrivals</Button>
         </div>
