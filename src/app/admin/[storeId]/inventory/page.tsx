@@ -206,9 +206,9 @@ export default function InventoryPage() {
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
                     <Label className="text-xs font-semibold">Description</Label>
-                    <Button variant="ghost" size="sm" onClick={handleAiDescription} disabled={loadingAi} className="h-6 text-[10px] bg-primary/5 hover:bg-primary/10 text-primary">
+                    {/* <Button variant="ghost" size="sm" onClick={handleAiDescription} disabled={loadingAi} className="h-6 text-[10px] bg-primary/5 hover:bg-primary/10 text-primary">
                       {loadingAi ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Sparkles className="w-3 h-3 mr-1" />} AI Generate
-                    </Button>
+                    </Button> */}
                   </div>
                   <Textarea 
                     placeholder="Describe your product..."
