@@ -1,11 +1,11 @@
-
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { useStore } from '@/components/store-context';
 import { useParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { formatNaira, cn } from '@/lib/utils';
 import { 
   Sparkles,
@@ -15,7 +15,10 @@ import {
   Clock,
   Banknote,
   Globe,
-  Plus
+  Plus,
+  Package,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { 
@@ -39,6 +42,7 @@ export default function AdminDashboard() {
   const store = getStore(storeId);
   
   const [timeframe, setTimeframe] = useState<TimeFrame>('7d');
+  const [timelinePage, setTimelinePage] = useState(0);
 
   // Memoized stats
   const stats = useMemo(() => {
@@ -166,6 +170,32 @@ export default function AdminDashboard() {
       bestSellers
     };
   }, [store, timeframe]);
+
+  // Calculate pagination for timeline
+  const timelinePages = useMemo(() => {
+    if (!stats) return { pages: [], totalPages: 0 };
+    
+    const itemsPerPage = 6;
+    const pages = [];
+    
+    for (let i = 0; i < stats.timeline.length; i += itemsPerPage) {
+      pages.push(stats.timeline.slice(i, i + itemsPerPage));
+    }
+    
+    return {
+      pages,
+      totalPages: pages.length,
+      currentPageItems: pages[timelinePage] || []
+    };
+  }, [stats, timelinePage]);
+
+  const handlePreviousPage = () => {
+    setTimelinePage(prev => Math.max(0, prev - 1));
+  };
+
+  const handleNextPage = () => {
+    setTimelinePage(prev => Math.min(timelinePages.totalPages - 1, prev + 1));
+  };
 
   if (!store || !stats) return <p>Loading store...</p>;
 
@@ -317,45 +347,78 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
 
-        {/* Transaction Timeline */}
-        <Card className="border-none shadow-md">
+        {/* Transaction Timeline - Original Design with Pagination (6 items per page) */}
+        <Card className="border-none shadow-md overflow-hidden">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-lg">Timeline</CardTitle>
-            <Clock className="w-4 h-4 text-muted-foreground" />
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">
+                Page {timelinePage + 1} of {timelinePages.totalPages || 1}
+              </span>
+              <div className="flex items-center gap-1">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-7 w-7 rounded-full"
+                  onClick={handlePreviousPage}
+                  disabled={timelinePage === 0}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-7 w-7 rounded-full"
+                  onClick={handleNextPage}
+                  disabled={timelinePage === timelinePages.totalPages - 1 || timelinePages.totalPages === 0}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-6 relative before:absolute before:inset-0 before:left-[11px] before:w-px before:bg-muted">
-              {stats.timeline.slice(0, 8).map((order, i) => (
-                <div key={order.id} className="relative pl-8">
-                  <div className={cn(
-                    "absolute left-0 top-1.5 w-6 h-6 rounded-full border-4 border-white flex items-center justify-center p-1",
-                    order.status === 'Completed' ? 'bg-green-500' : 
-                    order.status === 'Cancelled' ? 'bg-red-500' : 'bg-orange-500'
-                  )}>
-                    {order.source === 'POS' ? <Banknote className="w-2.5 h-2.5 text-white" /> : <Globe className="w-2.5 h-2.5 text-white" />}
-                  </div>
-                  <div className="flex flex-col gap-0.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold truncate max-w-[120px]">{order.customerName}</span>
-                      <span className="text-[10px] font-black">{formatNaira(order.total)}</span>
+            <div className="relative">
+              {/* Vertical line */}
+              <div className="absolute left-[11px] top-1 bottom-1 w-px bg-muted" />
+              
+              {/* Timeline items - exactly 6 per page */}
+              <div className="space-y-6 min-h-[320px]">
+                {timelinePages.currentPageItems.length > 0 ? (
+                  timelinePages.currentPageItems.map((order) => (
+                    <div key={order.id} className="relative pl-8">
+                      <div className={cn(
+                        "absolute left-0 top-1.5 w-6 h-6 rounded-full border-4 border-white flex items-center justify-center",
+                        order.status === 'Completed' ? 'bg-green-500' : 
+                        order.status === 'Cancelled' ? 'bg-red-500' : 'bg-orange-500'
+                      )}>
+                        {order.source === 'POS' ? 
+                          <Banknote className="w-2.5 h-2.5 text-white" /> : 
+                          <Globe className="w-2.5 h-2.5 text-white" />
+                        }
+                      </div>
+                      <div className="flex flex-col gap-0.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold truncate max-w-[120px]">{order.customerName}</span>
+                          <span className="text-[10px] font-black">{formatNaira(order.total)}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                          <span>{order.paymentMethod}</span>
+                          <span>{new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-                      <span>{order.paymentMethod}</span>
-                      <span>{new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                    </div>
+                  ))
+                ) : (
+                  <div className="flex items-center justify-center h-[320px] text-muted-foreground text-xs italic">
+                    No activity yet.
                   </div>
-                </div>
-              ))}
-              {stats.timeline.length === 0 && (
-                <div className="text-center py-8 text-muted-foreground text-xs italic">
-                  No activity yet.
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>
       </div>
-
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="border-none shadow-md overflow-hidden">
@@ -402,7 +465,7 @@ export default function AdminDashboard() {
                 <div key={product.id} className="flex items-center justify-between p-4 bg-orange-50/30">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">
-                      <img src={product.images[0]} className="w-full h-full object-cover" />
+                      <img src={product.images[0]} className="w-full h-full object-cover" alt={product.name} />
                     </div>
                     <div>
                       <p className="font-bold text-sm">{product.name}</p>
