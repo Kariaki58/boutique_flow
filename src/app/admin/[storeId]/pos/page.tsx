@@ -321,22 +321,29 @@ export default function PosPage() {
                 )}
                 onClick={() => handleProductPress(product)}
               >
-                <div className="aspect-square bg-muted relative">
-                  <img src={product.images?.[0] ?? "https://picsum.photos/seed/product/600/800"} alt={product.name} className="object-cover w-full h-full" />
+                {/* Fixed aspect ratio container with object-cover to maintain proportions */}
+                <div className="relative w-full pt-[100%] bg-muted">
+                  <img 
+                    src={product.images?.[0] ?? "https://picsum.photos/seed/product/600/800"} 
+                    alt={product.name} 
+                    className="absolute inset-0 w-full h-full object-cover"
+                  />
                   {product.stock <= 0 && (
                     <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-white text-xs font-bold uppercase">
                       Sold Out
                     </div>
                   )}
                 </div>
-                <CardContent className="p-3 flex-1 flex flex-col justify-between gap-1">
+                
+                {/* Card content with fixed height */}
+                <CardContent className="p-3 flex-1 flex flex-col justify-between gap-1 min-h-[100px]">
                   <div>
                     <p className="text-[10px] text-muted-foreground truncate">{product.category}</p>
-                    <p className="font-semibold text-sm line-clamp-2 leading-tight min-h-8">{product.name}</p>
+                    <p className="font-semibold text-sm line-clamp-2 leading-tight">{product.name}</p>
                   </div>
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between mt-auto">
                     <p className="text-primary font-bold">{formatNaira(product.price)}</p>
-                    <span className="text-[10px] text-muted-foreground">{product.stock} left</span>
+                    <span className="text-[10px] text-muted-foreground whitespace-nowrap">{product.stock} left</span>
                   </div>
                 </CardContent>
               </Card>

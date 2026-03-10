@@ -195,6 +195,15 @@ export default function InventoryPage() {
                     <Input type="number" placeholder="Retail price" value={formData.price} onChange={e => setFormData(p => ({ ...p, price: e.target.value }))} />
                   </div>
                 </div>
+                {/* Category Input */}
+                <div className="grid gap-2">
+                  <Label className="text-xs font-semibold">Category</Label>
+                  <Input 
+                    placeholder="e.g. Dresses, Shoes, Accessories" 
+                    value={formData.category} 
+                    onChange={e => setFormData(p => ({ ...p, category: e.target.value }))} 
+                  />
+                </div>
                 <div className="space-y-2">
                   <Label className="text-xs font-semibold">Product Images</Label>
                   <ImageUploader 
