@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useMemo, useState } from 'react';
@@ -21,13 +20,14 @@ import {
   Copy,
   Truck,
   Store,
-  ShoppingCart
+  ShoppingBag
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { cn, formatNaira } from '@/lib/utils';
 import { ProductImageCarousel } from '@/components/products/product-image-carousel';
 import { CartSlider } from '@/components/cart/cart-slider';
+import Head from 'next/head';
 
 export default function ProductDetailPage() {
   const { storeId, id } = useParams() as { storeId: string, id: string };
@@ -40,11 +40,10 @@ export default function ProductDetailPage() {
     const handleHashChange = () => {
       if (window.location.hash === '#cart') {
         setIsCartOpen(true);
-        // Clean up hash without triggering another scroll
         window.history.replaceState(null, '', window.location.pathname + window.location.search);
       }
     };
-    handleHashChange(); // Check on mount
+    handleHashChange();
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
@@ -67,6 +66,7 @@ export default function ProductDetailPage() {
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
+  const [showShareMenu, setShowShareMenu] = useState(false);
 
   const product = store?.products.find(p => p.id === id);
   const settings = store?.settings;
@@ -94,11 +94,6 @@ export default function ProductDetailPage() {
   const sizesForSelectedColor = useMemo(() => {
     if (!product) return [];
     return Array.from(new Set(product.variants.filter(v => v.color === selectedColor).map(v => v.size).filter(s => !!s)));
-  }, [product?.variants, selectedColor]);
-
-  const variantsForSelectedColor = useMemo(() => {
-    if (!product) return [];
-    return product.variants.filter(v => v.color === selectedColor);
   }, [product?.variants, selectedColor]);
 
   if (loading) {
@@ -217,6 +212,27 @@ export default function ProductDetailPage() {
   const copyLink = () => {
     navigator.clipboard.writeText(window.location.href);
     toast({ title: "Link copied", description: "Share this product with your friends!" });
+    setShowShareMenu(false);
+  };
+
+  const shareViaWhatsApp = () => {
+    const text = `Check out this product: ${product.name} - ${formatNaira(product.price)}\n\n${window.location.href}`;
+    const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
+    setShowShareMenu(false);
+  };
+
+  const shareViaTwitter = () => {
+    const text = `Check out ${product.name} at ${settings.name}`;
+    const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(window.location.href)}`;
+    window.open(url, '_blank');
+    setShowShareMenu(false);
+  };
+
+  const shareViaFacebook = () => {
+    const url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}`;
+    window.open(url, '_blank');
+    setShowShareMenu(false);
   };
 
   // Dynamic branding
@@ -439,189 +455,288 @@ export default function ProductDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      <style dangerouslySetInnerHTML={{ __html: brandingStyles }} />
-      <CartSlider open={isCartOpen} onOpenChange={setIsCartOpen} />
-      <header className="fixed top-0 left-0 right-0 z-50 px-4 py-4 flex items-center justify-between">
-        <Link href={`/s/${storeId}`}>
-          <Button variant="secondary" size="icon" className="rounded-full shadow-md bg-white/90">
-            <ChevronLeft className="w-6 h-6 text-primary" />
-          </Button>
-        </Link>
-        <div className="flex gap-2">
-          <Button 
-            variant="secondary" 
-            size="icon" 
-            className="rounded-full shadow-md bg-white/90 relative"
-            onClick={() => setIsCartOpen(true)}
+    <>
+      <Head>
+        <title>{product.name} | {settings.name}</title>
+        <meta name="description" content={product.description?.substring(0, 160) || `Shop ${product.name} at ${settings.name}`} />
+        
+        {/* Open Graph / Facebook */}
+        <meta property="og:type" content="product" />
+        <meta property="og:title" content={`${product.name} | ${settings.name}`} />
+        <meta property="og:description" content={product.description?.substring(0, 160) || `Shop ${product.name} at ${settings.name}`} />
+        <meta property="og:image" content={product.images[0] || '/default-product-image.jpg'} />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta property="og:url" content={typeof window !== 'undefined' ? window.location.href : ''} />
+        <meta property="og:site_name" content={settings.name} />
+        
+        {/* Twitter */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={`${product.name} | ${settings.name}`} />
+        <meta name="twitter:description" content={product.description?.substring(0, 160) || `Shop ${product.name} at ${settings.name}`} />
+        <meta name="twitter:image" content={product.images[0] || '/default-product-image.jpg'} />
+        
+        {/* Product specific meta */}
+        <meta property="product:price:amount" content={(product.price / 100).toString()} />
+        <meta property="product:price:currency" content="NGN" />
+        {product.availability && <meta property="product:availability" content={product.availability} />}
+      </Head>
+
+      <div className="min-h-screen bg-white">
+        <style dangerouslySetInnerHTML={{ __html: brandingStyles }} />
+        <CartSlider open={isCartOpen} onOpenChange={setIsCartOpen} />
+        
+        {/* Share Menu Overlay */}
+        {showShareMenu && (
+          <div 
+            className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center animate-in fade-in"
+            onClick={() => setShowShareMenu(false)}
           >
-            <ShoppingCart className="w-5 h-5 text-primary" />
-            {cart.length > 0 && (
-              <span className="absolute -top-1 -right-1 bg-primary text-white text-[9px] font-extrabold w-4 h-4 rounded-full flex items-center justify-center ring-2 ring-white">
-                {cart.reduce((sum, item) => sum + item.quantity, 0)}
-              </span>
-            )}
-          </Button>
-          <Button variant="secondary" size="icon" onClick={copyLink} className="rounded-full shadow-md bg-white/90">
-            <Copy className="w-5 h-5 text-primary" />
-          </Button>
-          <Button variant="secondary" size="icon" onClick={() => {
-            if (navigator.share) {
-              navigator.share({
-                title: product.name,
-                url: window.location.href
-              }).catch(() => {});
-            } else {
-              copyLink();
-            }
-          }} className="rounded-full shadow-md bg-white/90">
-            <Share2 className="w-5 h-5 text-primary" />
-          </Button>
-        </div>
-      </header>
-
-      <div className="max-w-md mx-auto pb-24">
-        <ProductImageCarousel images={product.images} />
-
-        <div className="p-6 space-y-6 -mt-6 bg-white rounded-t-3xl relative z-10 shadow-[0_-10px_30px_rgba(0,0,0,0.1)]">
-          <div>
-            <div className="flex justify-between items-start mb-2">
-              <Badge variant="secondary" className="uppercase tracking-widest text-[10px]">{product.category}</Badge>
-              <span className="text-2xl font-bold text-primary">{formatNaira(product.price)}</span>
+            <div 
+              className="bg-white rounded-t-3xl w-full max-w-md p-6 animate-in slide-in-from-bottom"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-lg font-bold">Share Product</h3>
+                <Button variant="ghost" size="icon" onClick={() => setShowShareMenu(false)}>
+                  <ChevronLeft className="w-5 h-5" />
+                </Button>
+              </div>
+              
+              <div className="grid grid-cols-4 gap-4 mb-6">
+                <button 
+                  onClick={shareViaWhatsApp}
+                  className="flex flex-col items-center gap-2"
+                >
+                  <div className="w-14 h-14 bg-green-500 rounded-full flex items-center justify-center">
+                    <MessageCircle className="w-7 h-7 text-white" />
+                  </div>
+                  <span className="text-xs">WhatsApp</span>
+                </button>
+                
+                <button 
+                  onClick={shareViaTwitter}
+                  className="flex flex-col items-center gap-2"
+                >
+                  <div className="w-14 h-14 bg-blue-400 rounded-full flex items-center justify-center">
+                    <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.104c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 0021.775-3.498 13.94 13.94 0 001.61-6.424c0-.21-.005-.42-.015-.63A9.935 9.935 0 0024 4.59z"/>
+                    </svg>
+                  </div>
+                  <span className="text-xs">Twitter</span>
+                </button>
+                
+                <button 
+                  onClick={shareViaFacebook}
+                  className="flex flex-col items-center gap-2"
+                >
+                  <div className="w-14 h-14 bg-blue-600 rounded-full flex items-center justify-center">
+                    <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                    </svg>
+                  </div>
+                  <span className="text-xs">Facebook</span>
+                </button>
+                
+                <button 
+                  onClick={copyLink}
+                  className="flex flex-col items-center gap-2"
+                >
+                  <div className="w-14 h-14 bg-gray-600 rounded-full flex items-center justify-center">
+                    <Copy className="w-7 h-7 text-white" />
+                  </div>
+                  <span className="text-xs">Copy Link</span>
+                </button>
+              </div>
+              
+              <div className="border-t pt-4">
+                <p className="text-sm text-muted-foreground text-center">
+                  Share this product with your friends and family
+                </p>
+              </div>
             </div>
-            <h1 className="text-2xl font-bold">{product.name}</h1>
-            <p className="text-muted-foreground text-sm mt-3 leading-relaxed">
-              {product.description}
-            </p>
           </div>
+        )}
 
-          {/* Variant Selection */}
-          <div className="space-y-6">
-            {allColors.length > 0 && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-bold uppercase tracking-wider text-muted-foreground/80">Select Color</span>
-                  {selectedVariant && selectedVariant.stock > 0 && selectedVariant.stock < 10 && (
-                    <Badge variant="outline" className="text-[10px] border-orange-200 bg-orange-50 text-orange-700 animate-pulse">
-                      Only {selectedVariant.stock} left!
-                    </Badge>
-                  )}
-                </div>
-                <div className="flex flex-wrap gap-3">
-                  {allColors.map(color => {
-                    const isSelected = selectedColor === color;
-                    const isAnyAvailable = product.variants.some(v => v.color === color && v.stock > 0);
-                    
-                    return (
-                      <button
-                        key={color}
-                        type="button"
-                        onClick={() => {
-                          const firstAvailable = product.variants.find(v => v.color === color && v.stock > 0) ?? product.variants.find(v => v.color === color);
-                          setSelectedVariantId(firstAvailable?.id ?? null);
-                          setQuantity(1);
-                        }}
-                        className={cn(
-                          "px-6 py-2.5 rounded-full text-sm font-semibold transition-all border-2",
-                          isSelected 
-                            ? "border-primary bg-primary text-white shadow-md scale-105" 
-                            : "border-muted bg-white text-muted-foreground hover:border-primary/30 hover:bg-primary/5",
-                          !isAnyAvailable && !isSelected && "opacity-40 grayscale"
-                        )}
-                      >
-                        {color}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {allColors.length > 0 && (
-              <div className="space-y-3">
-                <span className="text-sm font-bold uppercase tracking-wider text-muted-foreground/80">Select Size</span>
-                <div className="flex flex-wrap gap-3">
-                  {sizesForSelectedColor.map(size => {
-                    const variant = product.variants.find(v => v.color === selectedColor && v.size === size);
-                    const isSelected = selectedSize === size;
-                    const isOutOfStock = !variant || (variant.stock ?? 0) <= 0;
-                    
-                    return (
-                      <button
-                        key={size}
-                        type="button"
-                        disabled={isOutOfStock && !isSelected}
-                        onClick={() => {
-                          setSelectedVariantId(variant?.id ?? null);
-                          setQuantity(1);
-                        }}
-                        className={cn(
-                          "min-w-[60px] px-4 py-2.5 rounded-xl text-sm font-bold transition-all border-2 relative overflow-hidden",
-                          isSelected 
-                            ? "border-primary bg-primary text-white shadow-md" 
-                            : "border-muted bg-white text-muted-foreground hover:border-primary/30 hover:bg-primary/5",
-                          isOutOfStock && "opacity-50 cursor-not-allowed"
-                        )}
-                      >
-                        {size}
-                        {isOutOfStock && (
-                          <div className="absolute inset-x-0 top-1/2 h-[2px] bg-muted-foreground/30 -rotate-12" />
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {allColors.length === 0 && (
-              <div className="p-4 bg-muted/30 rounded-2xl border-2 border-dashed border-muted flex flex-col items-center justify-center text-center">
-                <p className="text-sm text-muted-foreground font-medium">This product has no specific variants.</p>
-                <p className="text-[10px] text-muted-foreground/60 mt-1 italic">Contact us for custom requests.</p>
-              </div>
-            )}
+        <header className="fixed top-0 left-0 right-0 z-50 px-4 py-4 flex items-center justify-between">
+          <Link href={`/s/${storeId}`}>
+            <Button variant="secondary" size="icon" className="rounded-full shadow-md bg-white/90">
+              <ChevronLeft className="w-6 h-6 text-primary" />
+            </Button>
+          </Link>
+          <div className="flex gap-2">
+            <Button 
+              variant="secondary" 
+              size="icon" 
+              className="rounded-full shadow-md bg-white/90 relative"
+              onClick={() => setIsCartOpen(true)}
+            >
+              <ShoppingBag className="w-5 h-5 text-primary" />
+              {cart.length > 0 && (
+                <span className="absolute -top-1 -right-1 bg-primary text-white text-[9px] font-extrabold w-4 h-4 rounded-full flex items-center justify-center ring-2 ring-white">
+                  {cart.reduce((sum, item) => sum + item.quantity, 0)}
+                </span>
+              )}
+            </Button>
           </div>
+        </header>
 
-          <div className="flex items-center justify-between py-4 border-y">
-            <span className="font-semibold">Quantity</span>
-            <div className="flex items-center gap-4 bg-muted p-1 rounded-full px-2">
-              <Button size="icon" variant="ghost" className="h-8 w-8 rounded-full" onClick={() => setQuantity(Math.max(1, quantity - 1))}>
-                <Minus className="w-4 h-4" />
-              </Button>
-              <span className="font-bold w-4 text-center">{quantity}</span>
+        <div className="max-w-md mx-auto pb-24">
+          <ProductImageCarousel images={product.images} />
+
+          <div className="p-6 space-y-6 -mt-6 bg-white rounded-t-3xl relative z-10 shadow-[0_-10px_30px_rgba(0,0,0,0.1)]">
+            {/* Share Button - Moved here */}
+            <div className="flex justify-end -mt-2">
               <Button
-                size="icon"
                 variant="ghost"
-                className="h-8 w-8 rounded-full"
-                disabled={maxQty > 0 ? quantity >= maxQty : true}
-                onClick={() => setQuantity(q => Math.min(maxQty, q + 1))}
+                size="sm"
+                onClick={() => setShowShareMenu(true)}
+                className="text-muted-foreground hover:text-primary gap-2"
               >
-                <Plus className="w-4 h-4" />
+                <Share2 className="w-4 h-4" />
+                <span className="text-sm">Share</span>
               </Button>
             </div>
-          </div>
 
-          <div className="grid grid-cols-1 gap-3 pt-4">
-            <div className="flex gap-3">
-              <Button 
-                variant="outline"
-                className="flex-1 h-14 border-primary text-primary text-lg font-bold rounded-2xl" 
-                onClick={handleAddToCart}
-                disabled={!selectedVariant || selectedVariant.stock <= 0}
-              >
-                Add to Cart
-              </Button>
-              <Button 
-                className="flex-[1.5] h-14 text-lg font-bold rounded-2xl shadow-lg shadow-primary/20" 
-                onClick={() => setStep('checkout')}
-                disabled={!selectedVariant || selectedVariant.stock <= 0}
-              >
-                Buy Now
-              </Button>
+            <div>
+              <div className="flex justify-between items-start mb-2">
+                <Badge variant="secondary" className="uppercase tracking-widest text-[10px]">{product.category}</Badge>
+                <span className="text-2xl font-bold text-primary">{formatNaira(product.price)}</span>
+              </div>
+              <h1 className="text-2xl font-bold">{product.name}</h1>
+              <p className="text-muted-foreground text-sm mt-3 leading-relaxed">
+                {product.description}
+              </p>
+            </div>
+
+            {/* Variant Selection */}
+            <div className="space-y-6">
+              {allColors.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-bold uppercase tracking-wider text-muted-foreground/80">Select Color</span>
+                    {selectedVariant && selectedVariant.stock > 0 && selectedVariant.stock < 10 && (
+                      <Badge variant="outline" className="text-[10px] border-orange-200 bg-orange-50 text-orange-700 animate-pulse">
+                        Only {selectedVariant.stock} left!
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    {allColors.map(color => {
+                      const isSelected = selectedColor === color;
+                      const isAnyAvailable = product.variants.some(v => v.color === color && v.stock > 0);
+                      
+                      return (
+                        <button
+                          key={color}
+                          type="button"
+                          onClick={() => {
+                            const firstAvailable = product.variants.find(v => v.color === color && v.stock > 0) ?? product.variants.find(v => v.color === color);
+                            setSelectedVariantId(firstAvailable?.id ?? null);
+                            setQuantity(1);
+                          }}
+                          className={cn(
+                            "px-6 py-2.5 rounded-full text-sm font-semibold transition-all border-2",
+                            isSelected 
+                              ? "border-primary bg-primary text-white shadow-md scale-105" 
+                              : "border-muted bg-white text-muted-foreground hover:border-primary/30 hover:bg-primary/5",
+                            !isAnyAvailable && !isSelected && "opacity-40 grayscale"
+                          )}
+                        >
+                          {color}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {allColors.length > 0 && (
+                <div className="space-y-3">
+                  <span className="text-sm font-bold uppercase tracking-wider text-muted-foreground/80">Select Size</span>
+                  <div className="flex flex-wrap gap-3">
+                    {sizesForSelectedColor.map(size => {
+                      const variant = product.variants.find(v => v.color === selectedColor && v.size === size);
+                      const isSelected = selectedSize === size;
+                      const isOutOfStock = !variant || (variant.stock ?? 0) <= 0;
+                      
+                      return (
+                        <button
+                          key={size}
+                          type="button"
+                          disabled={isOutOfStock && !isSelected}
+                          onClick={() => {
+                            setSelectedVariantId(variant?.id ?? null);
+                            setQuantity(1);
+                          }}
+                          className={cn(
+                            "min-w-[60px] px-4 py-2.5 rounded-xl text-sm font-bold transition-all border-2 relative overflow-hidden",
+                            isSelected 
+                              ? "border-primary bg-primary text-white shadow-md" 
+                              : "border-muted bg-white text-muted-foreground hover:border-primary/30 hover:bg-primary/5",
+                            isOutOfStock && "opacity-50 cursor-not-allowed"
+                          )}
+                        >
+                          {size}
+                          {isOutOfStock && (
+                            <div className="absolute inset-x-0 top-1/2 h-[2px] bg-muted-foreground/30 -rotate-12" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {allColors.length === 0 && (
+                <div className="p-4 bg-muted/30 rounded-2xl border-2 border-dashed border-muted flex flex-col items-center justify-center text-center">
+                  <p className="text-sm text-muted-foreground font-medium">This product has no specific variants.</p>
+                  <p className="text-[10px] text-muted-foreground/60 mt-1 italic">Contact us for custom requests.</p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between py-4 border-y">
+              <span className="font-semibold">Quantity</span>
+              <div className="flex items-center gap-4 bg-muted p-1 rounded-full px-2">
+                <Button size="icon" variant="ghost" className="h-8 w-8 rounded-full" onClick={() => setQuantity(Math.max(1, quantity - 1))}>
+                  <Minus className="w-4 h-4" />
+                </Button>
+                <span className="font-bold w-4 text-center">{quantity}</span>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8 rounded-full"
+                  disabled={maxQty > 0 ? quantity >= maxQty : true}
+                  onClick={() => setQuantity(q => Math.min(maxQty, q + 1))}
+                >
+                  <Plus className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 pt-4">
+              <div className="flex gap-3">
+                <Button 
+                  variant="outline"
+                  className="flex-1 h-14 border-primary text-primary text-lg font-bold rounded-2xl" 
+                  onClick={handleAddToCart}
+                  disabled={!selectedVariant || selectedVariant.stock <= 0}
+                >
+                  Add to Cart
+                </Button>
+                <Button 
+                  className="flex-[1.5] h-14 text-lg font-bold rounded-2xl shadow-lg shadow-primary/20" 
+                  onClick={() => setStep('checkout')}
+                  disabled={!selectedVariant || selectedVariant.stock <= 0}
+                >
+                  Buy Now
+                </Button>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
