@@ -191,13 +191,34 @@ export async function createStore(name: string): Promise<{ storeId: string; chec
   const { data: { user } } = await supabase.auth.getUser();
   if (!user || !user.email) throw new Error('Not authenticated');
 
-  const id = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') + '-' + Math.random().toString(36).substr(2, 4);
+  // Trim and validate name
+  const trimmedName = name.trim();
+  if (!trimmedName) {
+    throw new Error('Boutique name cannot be empty');
+  }
+
+  // Check if user already has a boutique with the same name (case-insensitive)
+  const { data: existingStores, error: checkError } = await supabase
+    .from('stores')
+    .select('id, name')
+    .eq('user_id', user.id)
+    .ilike('name', trimmedName);
+
+  if (checkError) {
+    throw new Error('Failed to check for existing boutiques');
+  }
+
+  if (existingStores && existingStores.length > 0) {
+    throw new Error(`You already have a boutique named "${trimmedName}". Please choose a different name.`);
+  }
+
+  const id = trimmedName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') + '-' + Math.random().toString(36).substr(2, 4);
 
   const { error } = await supabase.from('stores').insert({
     id,
     user_id: user.id,
-    name,
-    description: `Welcome to ${name}`,
+    name: trimmedName,
+    description: `Welcome to ${trimmedName}`,
     logo: '',
     bank_name: '',
     account_name: '',
@@ -206,7 +227,13 @@ export async function createStore(name: string): Promise<{ storeId: string; chec
     is_activated: false,
   });
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    // Check if it's a unique constraint violation
+    if (error.code === '23505' || error.message.includes('duplicate') || error.message.includes('unique')) {
+      throw new Error(`A boutique with the name "${trimmedName}" already exists. Please choose a different name.`);
+    }
+    throw new Error(error.message);
+  }
 
   const { initializePaystackPayment } = await import('@/lib/paystack');
   const { authorization_url, reference } = await initializePaystackPayment(user.email, 2500, {

@@ -35,6 +35,8 @@ export async function middleware(request: NextRequest) {
   // Protect all admin routes
   const isAdminRoute = pathname.startsWith('/admin');
   const isAuthRoute = pathname.startsWith('/auth');
+  const isConfirmEmailRoute = pathname === '/auth/confirm-email';
+  const isCallbackRoute = pathname === '/auth/callback';
 
   if (isAdminRoute && !user) {
     const url = request.nextUrl.clone();
@@ -42,8 +44,9 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Redirect authenticated users away from login page
-  if (isAuthRoute && user) {
+  // Allow confirm-email and callback routes for both authenticated and unauthenticated users
+  // Redirect authenticated users away from login page (but not confirm-email or callback)
+  if (isAuthRoute && user && !isConfirmEmailRoute && !isCallbackRoute) {
     const url = request.nextUrl.clone();
     url.pathname = '/admin';
     return NextResponse.redirect(url);

@@ -63,8 +63,18 @@ export default function VerifyActivationPage() {
             <p className="text-muted-foreground">
               Please wait while we confirm your activation fee payment with Paystack.
             </p>
+            <div className="pt-4 space-y-2 text-sm text-muted-foreground">
+              <p>Step 4 of 4: Activating your boutique</p>
+              <div className="flex justify-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-primary" />
+                <div className="w-2 h-2 rounded-full bg-primary" />
+                <div className="w-2 h-2 rounded-full bg-primary" />
+                <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+              </div>
+            </div>
           </div>
-        ) || status === "success" && (
+        )}
+        {status === "success" && (
           <div className="space-y-6">
             <div className="flex justify-center">
               <CheckCircle2 className="w-16 h-16 text-green-500" />
@@ -73,20 +83,38 @@ export default function VerifyActivationPage() {
             <p className="text-muted-foreground">
               Your payment was successful. Redirecting you to your dashboard...
             </p>
+            <div className="pt-4">
+              <div className="flex justify-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-green-500" />
+                <div className="w-2 h-2 rounded-full bg-green-500" />
+                <div className="w-2 h-2 rounded-full bg-green-500" />
+                <div className="w-2 h-2 rounded-full bg-green-500" />
+              </div>
+            </div>
           </div>
-        ) || status === "error" && (
+        )}
+        {status === "error" && (
           <div className="space-y-6">
             <div className="flex justify-center">
               <XCircle className="w-16 h-16 text-red-500" />
             </div>
             <h1 className="text-2xl font-bold text-gray-900">Activation Failed</h1>
             <p className="text-red-500 font-medium">{errorMessage}</p>
-            <Button 
-              onClick={() => router.push('/')} 
-              className="w-full h-12 rounded-xl"
-            >
-              Back to Home
-            </Button>
+            <div className="space-y-3">
+              <Button 
+                onClick={() => router.push('/')} 
+                className="w-full h-12 rounded-xl"
+              >
+                Back to Home
+              </Button>
+              <Button 
+                onClick={() => router.push('/admin')} 
+                variant="outline"
+                className="w-full h-12 rounded-xl"
+              >
+                Go to Dashboard
+              </Button>
+            </div>
           </div>
         )}
       </div>

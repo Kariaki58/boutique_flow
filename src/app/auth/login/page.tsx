@@ -1,28 +1,76 @@
 
 "use client";
 
-import React, { useState, useTransition } from 'react';
+import React, { useState, useTransition, useEffect } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { ShoppingBag, Loader2, ArrowRight } from 'lucide-react';
+import { ShoppingBag, Loader2, ArrowRight, Mail, CheckCircle2 } from 'lucide-react';
 import { signIn, signUp } from '@/lib/actions/auth';
 
 export default function LoginPage() {
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const urlMode = searchParams.get('mode');
+  const confirmed = searchParams.get('confirmed');
+  const boutiqueFromUrl = searchParams.get('boutique');
+  const [mode, setMode] = useState<'signin' | 'signup'>(urlMode === 'signup' ? 'signup' : 'signin');
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [pendingBoutiqueName, setPendingBoutiqueName] = useState<string>('');
+
+  useEffect(() => {
+    // Restore boutique name from sessionStorage if available
+    const storedName = sessionStorage.getItem('pendingBoutiqueName');
+    if (storedName) {
+      setPendingBoutiqueName(storedName);
+    }
+    
+    // Check if user just confirmed their email
+    if (confirmed === 'true') {
+      setSuccessMessage('Email confirmed successfully! Please sign in to continue.');
+      setMode('signin'); // Switch to signin mode
+      if (boutiqueFromUrl) {
+        setPendingBoutiqueName(boutiqueFromUrl);
+        sessionStorage.setItem('pendingBoutiqueName', boutiqueFromUrl);
+      }
+      // Clear the URL parameter but keep mode=signin
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete('confirmed');
+      newUrl.searchParams.delete('boutique');
+      newUrl.searchParams.set('mode', 'signin');
+      router.replace(newUrl.pathname + newUrl.search);
+    }
+    
+    // Check for error in URL
+    const urlError = searchParams.get('error');
+    if (urlError) {
+      setError(urlError);
+      router.replace('/auth/login');
+    }
+  }, [confirmed, boutiqueFromUrl, router, searchParams]);
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
     const formData = new FormData(e.currentTarget);
+    
+    // Add pending boutique name to formData for signin
+    if (pendingBoutiqueName && mode === 'signin') {
+      formData.append('pendingBoutiqueName', pendingBoutiqueName);
+    }
 
     startTransition(async () => {
-      const result = mode === 'signup' ? await signUp(formData) : await signIn(formData);
+      const result = mode === 'signup' ? await signUp(formData, pendingBoutiqueName) : await signIn(formData);
       if (result?.error) {
         setError(result.error);
+      } else if (mode === 'signup' && result?.needsConfirmation) {
+        // Redirect handled by signUp action
+      } else if (mode === 'signin' && result?.needsConfirmation) {
+        setError('Please check your email and confirm your account before signing in.');
       }
     });
   };
@@ -46,8 +94,21 @@ export default function LoginPage() {
             <CardDescription>
               {mode === 'signin'
                 ? 'Sign in to manage your boutique'
-                : 'Launch your online boutique in minutes'}
+                : pendingBoutiqueName 
+                  ? `Create your account to launch "${pendingBoutiqueName}"`
+                  : 'Launch your online boutique in minutes'}
             </CardDescription>
+            {pendingBoutiqueName && mode === 'signup' && (
+              <div className="mt-3 space-y-2">
+                <div className="flex items-center justify-center gap-2 text-sm text-primary bg-primary/10 px-3 py-2 rounded-lg">
+                  <ShoppingBag className="w-4 h-4" />
+                  <span className="font-medium">Boutique: {pendingBoutiqueName}</span>
+                </div>
+                <p className="text-xs text-muted-foreground text-center">
+                  After creating your account, you'll confirm your email, then activate "{pendingBoutiqueName}"
+                </p>
+              </div>
+            )}
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -87,6 +148,18 @@ export default function LoginPage() {
                   autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
                 />
               </div>
+
+              {successMessage && (
+                <div className="bg-green-50 border border-green-200 text-green-800 text-sm px-4 py-3 rounded-lg flex items-start gap-3">
+                  <CheckCircle2 className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium">{successMessage}</p>
+                    {pendingBoutiqueName && (
+                      <p className="text-xs mt-1">Your boutique "{pendingBoutiqueName}" is ready to be created after you sign in.</p>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {error && (
                 <div className="bg-destructive/10 text-destructive text-sm px-3 py-2 rounded-lg">
