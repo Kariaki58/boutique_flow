@@ -30,6 +30,27 @@ export default function SaaSLandingPage() {
     setIsProcessingAutoCreate(true);
     setCreating(true);
     setError(null);
+    
+    // Double-check if store name already exists before attempting creation
+    try {
+      const currentStores = await getMyStores();
+      const nameExists = currentStores.some(store => 
+        store.settings.name.toLowerCase().trim() === name.toLowerCase().trim()
+      );
+      
+      if (nameExists) {
+        setError(`You already have a boutique named "${name}". Please choose a different name.`);
+        sessionStorage.removeItem('pendingBoutiqueName');
+        setNewStoreName('');
+        setCreating(false);
+        setIsProcessingAutoCreate(false);
+        return;
+      }
+    } catch (checkError) {
+      console.error("Failed to check existing stores:", checkError);
+      // Continue with creation attempt - server will validate
+    }
+    
     try {
       const { storeId, checkoutUrl } = await createStoreAction(name);
       sessionStorage.removeItem('pendingBoutiqueName');
@@ -37,7 +58,8 @@ export default function SaaSLandingPage() {
       window.location.href = checkoutUrl;
     } catch (error: any) {
       console.error("Failed to create store:", error);
-      setError(error?.message || 'Failed to create boutique. Please try again.');
+      const errorMessage = error?.message || 'Failed to create boutique. Please try again.';
+      setError(errorMessage);
       setCreating(false);
       setIsProcessingAutoCreate(false);
       // Clear the name from sessionStorage on error so user can retry
@@ -69,9 +91,21 @@ export default function SaaSLandingPage() {
           );
           
           if (nameExists) {
-            setError(`You already have a boutique named "${nameToUse}". Please choose a different name.`);
-            sessionStorage.removeItem('pendingBoutiqueName');
-            setNewStoreName('');
+            const existingStore = myStores.find(store => 
+              store.settings.name.toLowerCase().trim() === nameToUse.toLowerCase().trim()
+            );
+            if (existingStore) {
+              setError(`You already have a boutique named "${nameToUse}". Redirecting to your existing boutique...`);
+              sessionStorage.removeItem('pendingBoutiqueName');
+              // Redirect to existing store after a brief delay
+              setTimeout(() => {
+                router.push(`/admin/${existingStore.settings.id}`);
+              }, 1500);
+            } else {
+              setError(`You already have a boutique named "${nameToUse}". Please choose a different name.`);
+              sessionStorage.removeItem('pendingBoutiqueName');
+              setNewStoreName('');
+            }
           } else {
             // Auto-submit after a brief delay to show the form
             setTimeout(() => {
